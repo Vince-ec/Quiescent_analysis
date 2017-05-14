@@ -1,0 +1,9 @@
+col0
+../poster_plots/gt10.87_fsps_10_3250-5250_LH.png
+../poster_plots/gt10.87_fsps_10_3250-5500_LH.png
+../poster_plots/gt10.87_fsps_std_10_3250-5250_LH.png
+../poster_plots/gt10.87_fsps_std_10_3250-5500_LH.png
+
+../poster_plots/lt10.87_fsps_10_3400-5250_LH.png
+../poster_plots/lt10.87_fsps_std_10_3400-5500_LH.png
+
