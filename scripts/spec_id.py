@@ -92,7 +92,7 @@ def Get_flux(FILE):
 
 def Get_flux_nocont(FILE, z):
     w, f, e = np.load(FILE)
-    if FILE == 'spec_stacks_jan24/s40597_stack.npy':
+    if FILE == '../spec_stacks_jan24/s40597_stack.npy':
         IDW = []
         for ii in range(len(w)):
             if 7950 <  w[ii] < 11000:
@@ -301,7 +301,7 @@ def Analyze_Stack(chifits, tau, metal, age):
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Analyze_Stack_avgage(chifits, tau, metal, age,age_conv='tau_scale_ntau.dat'):
+def Analyze_Stack_avgage(chifits, tau, metal, age,age_conv='../data/tau_scale_ntau.dat'):
     ####### Read in file
     dat = fits.open(chifits)
     chi = np.zeros([len(metal),len(age),len(tau)])
@@ -342,7 +342,7 @@ def Analyze_Stack_avgage(chifits, tau, metal, age,age_conv='tau_scale_ntau.dat')
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Analyze_Stack_avgage_cont_feat(contfits, featfits, tau, metal, age, age_conv='tau_scale_ntau.dat'):
+def Analyze_Stack_avgage_cont_feat(contfits, featfits, tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
     ####### Read in file
     Cdat = fits.open(contfits)
     Cchi = np.zeros([len(metal), len(age), len(tau)])
@@ -408,7 +408,7 @@ def Analyze_Stack_avgage_cont_feat(contfits, featfits, tau, metal, age, age_conv
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, metal, age, age_conv='tau_scale_ntau.dat'):
+def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
 
     Cprob = np.ones([len(metal), len(age), len(tau)])
     scale = Readfile(age_conv, 1)
@@ -516,7 +516,7 @@ def Stack_model(speclist, modellist, redshifts, wv_range):
     for i in range(len(speclist)):
         #######read in spectra
         wave, flux, error = np.load(speclist[i])
-        if speclist[i] == 'spec_stacks_jan24/s40597_stack.npy':
+        if speclist[i] == '../data/spec_stacks_jan24/s40597_stack.npy':
             IDW = []
             for ii in range(len(wave)):
                 if 7950 < wave[ii] < 11000:
@@ -671,7 +671,7 @@ def Stack_sim_model(speclist, modellist, redshifts, wv_range):
     for i in range(len(speclist)):
         #######read in spectra
         wave, flux, error = np.array(Readfile(speclist[i], 1))
-        if speclist[i] == 'spec_stacks_jan24/s40597_stack.dat':
+        if speclist[i] == '../data/spec_stacks_jan24/s40597_stack.dat':
             IDW = []
             for ii in range(len(wave)):
                 if 7950 < wave[ii] < 11000:
@@ -756,14 +756,14 @@ def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_na
 
     #############Prep output file###############
 
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ###############Pickle spectra##################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -775,7 +775,7 @@ def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_na
         for i in range(len(speclist)):
             #######read in spectra
             wave, flux, error = np.load(speclist[i])
-            if speclist[i] == 'spec_stacks_jan24/s40597_stack.npy':
+            if speclist[i] == '../spec_stacks_jan24/s40597_stack.npy':
                 IDW = []
                 for ii in range(len(wave)):
                     if 7950 < wave[ii] < 11000:
@@ -850,14 +850,14 @@ def Model_fit_stack_features(speclist, tau, metal, A, speczs,ids, wv_range, name
 
     #############Prep output file###############
 
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ###############Pickle spectra##################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -869,7 +869,7 @@ def Model_fit_stack_features(speclist, tau, metal, A, speczs,ids, wv_range, name
         for i in range(len(speclist)):
             #######read in spectra
             wave, flux, error = np.load(speclist[i])
-            if speclist[i] == 'spec_stacks_jan24/s40597_stack.npy':
+            if speclist[i] == '../spec_stacks_jan24/s40597_stack.npy':
                 IDW = []
                 for ii in range(len(wave)):
                     if 7950 < wave[ii] < 11000:
@@ -993,7 +993,7 @@ def Model_fit_stack_MCerr_bestfit(speclist, tau, metal, A, speczs, wv_range, nam
 
     ##############Pickle spectra#################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -1064,7 +1064,7 @@ def Model_fit_stack_MCerr_bestfit(speclist, tau, metal, A, speczs, wv_range, nam
 def Model_fit_sim_stack_MCerr_bestfit(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
                                       wv_range, name, pkl_name, repeats=100):
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     ##############Start loop and add error#############
 
@@ -1083,7 +1083,7 @@ def Model_fit_sim_stack_MCerr_bestfit(speclist, tau, metal, A, sim_m, sim_a, sim
     mf=np.array(mf)
 
     outspec.close()
-    scale = Readfile('tau_scale_nage.dat', 1)
+    scale = Readfile('../data/tau_scale_nage.dat', 1)
 
     for xx in range(repeats):
         ##############Stack spectra################
@@ -1127,7 +1127,7 @@ def Model_fit_sim_stack_MCerr_bestfit(speclist, tau, metal, A, sim_m, sim_a, sim
         alist.append(A[idmax[1]])
         mlist.append(metal[idmax[0]])
 
-    fn = 'mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -1222,7 +1222,7 @@ def Model_fit_grism(grismfile, tau, metal, age, name):
     # grismflx[grismflx < 0] = 0
 
     #############Prep output file###############
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -1347,29 +1347,21 @@ def Divide_cont_model(wave,flux, z):
     return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]]
 
 
-def Analyze_cluster(chifits, metal, age):
+def Analyze_cluster(chifits, metal, age, tau):
     ####### Read in file
     chi = fits.open(chifits)[1].data
-
-    # print chi
-    # print len(chi),len(chi[0])
 
     ####### Create normalize probablity marginalized over tau
     prob = np.array(Norm_P_cluster(metal, age, chi)).astype(np.float128)
 
-    # for u in prob:
-    #     print u
-
     ####### get best fit values
-    # print len(prob),len(prob[0])
     [idmax] = np.argwhere(prob == np.max(prob))
-    # print idmax
     print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Cluster_fit(spec, metal, age, name):
+def Cluster_fit(spec, metal, age, tau, name):
     #############Define cluster#################
     cluster = Cluster(spec)
     cluster.Remove_continuum()
@@ -1390,49 +1382,49 @@ def Cluster_fit(spec, metal, age, name):
             IDC.append(i)
 
     #############Prep output files: 1-full, 2-cont, 3-feat###############
-    chifile1='chidat/%s_chidata.fits' % name
+    chifile1='../chidat/%s_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-    chifile2='chidat/%s_cont_chidata.fits' % name
+    chifile2='../chidat/%s_cont_chidata.fits' % name
     prihdr2 = fits.Header()
     prihdu2 = fits.PrimaryHDU(header=prihdr2)
     hdulist2 = fits.HDUList(prihdu2)
 
-    chifile3='chidat/%s_feat_chidata.fits' % name
+    chifile3='../chidat/%s_feat_chidata.fits' % name
     prihdr3 = fits.Header()
     prihdu3 = fits.PrimaryHDU(header=prihdr3)
     hdulist3 = fits.HDUList(prihdu3)
 
 
     ##############Create chigrid and add to file#################
-    chigrid1=np.zeros([len(metal),len(age)])
-    chigrid2=np.zeros([len(metal),len(age)])
-    chigrid3=np.zeros([len(metal),len(age)])
+    chigrid1=np.zeros([len(metal),len(age),len(tau)])
+    chigrid2=np.zeros([len(metal),len(age),len(tau)])
+    chigrid3=np.zeros([len(metal),len(age),len(tau)])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
-            cmodel = Cluster_model(metal[i], age[ii], cluster.wv, cluster.fl, cluster.er)
-            cmodel.Remove_continuum()
-            chigrid1[i][ii] = Identify_stack(cluster.nc_fl, cluster.nc_er, cmodel.nc_fl)
-            chigrid2[i][ii] = Identify_stack(cluster.nc_fl[IDC], cluster.nc_er[IDC], cmodel.nc_fl[IDC])
-            chigrid3[i][ii] = Identify_stack(cluster.nc_fl[IDF], cluster.nc_er[IDF], cmodel.nc_fl[IDF])
+            for iii in range(len(tau)):
+                cmodel = Cluster_model(metal[i], age[ii], tau[iii], cluster.wv, cluster.fl, cluster.er)
+                cmodel.Remove_continuum()
+                chigrid1[i][ii][iii] = Identify_stack(cluster.nc_fl, cluster.nc_er, cmodel.nc_fl)
+                chigrid2[i][ii][iii] = Identify_stack(cluster.nc_fl[IDC], cluster.nc_er[IDC], cmodel.nc_fl[IDC])
+                chigrid3[i][ii][iii] = Identify_stack(cluster.nc_fl[IDF], cluster.nc_er[IDF], cmodel.nc_fl[IDF])
+        inputgrid1 = np.array(chigrid1[i])
+        spc1 = 'metal_%s' % metal[i]
+        mchi1 = fits.ImageHDU(data=inputgrid1, name=spc1)
+        hdulist1.append(mchi1)
 
-    inputgrid1 = np.array(chigrid1)
-    spc1 = 'tau=0'
-    mchi1 = fits.ImageHDU(data=inputgrid1, name=spc1)
-    hdulist1.append(mchi1)
+        inputgrid2 = np.array(chigrid2[i])
+        spc2 = 'metal_%s' % metal[i]
+        mchi2 = fits.ImageHDU(data=inputgrid2, name=spc2)
+        hdulist2.append(mchi2)
 
-    inputgrid2 = np.array(chigrid2)
-    spc2 = 'tau=0'
-    mchi2 = fits.ImageHDU(data=inputgrid2, name=spc2)
-    hdulist2.append(mchi2)
-
-    inputgrid3 = np.array(chigrid3)
-    spc3 = 'tau=0'
-    mchi3 = fits.ImageHDU(data=inputgrid3, name=spc3)
-    hdulist3.append(mchi3)
+        inputgrid3 = np.array(chigrid3[i])
+        spc3 = 'metal_%s' % metal[i]
+        mchi3 = fits.ImageHDU(data=inputgrid3, name=spc3)
+        hdulist3.append(mchi3)
 
     ################Write chigrid file###############
     hdulist1.writeto(chifile1)
@@ -1460,20 +1452,25 @@ class Cluster(object):
         self.nc_fl = nc_fl
         self.nc_er = nc_er
 
-    def Analyze_fit(self, chigrid, metal, age):
+    def Analyze_fit(self, chigrid, metal, age, tau):
         self.metal = metal
         self.age = age
-
+        self.tau = tau
+        ultau = np.append(0, np.power(10, np.array(self.tau)[1:] - 9))
 
         ####### Read in file
         dat = fits.open(chigrid)
-        self.chi = dat[1].data.T
+        chi = []
+        for i in range(len(metal)):
+            chi.append(dat[i + 1].data)
+        self.chi = np.array(chi)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-self.chi.astype(np.float128) / 2)
 
-        AP = np.trapz(prob, self.metal)
-        MP = np.trapz(prob.T, self.age)
+        TP = np.trapz(prob, ultau, axis=2)
+        AP = np.trapz(TP.T, self.metal)
+        MP = np.trapz(TP, self.age)
         C = np.trapz(AP, self.age)
 
         self.prob = prob / C
@@ -1490,37 +1487,47 @@ class Cluster(object):
         print 'Best fit model is %s Gyr and %s Z' % (self.bfage, self.bfmetal)
 
 
-    def Analyze_fit_FC(self, contgrid,featgrid, metal, age):
+    def Analyze_fit_FC(self, contgrid,featgrid, metal, age, tau):
         self.metal = metal
         self.age = age
-
+        self.tau = tau
+        ultau = np.append(0, np.power(10, np.array(self.tau)[1:] - 9))
 
         ####### Read in file
         datc = fits.open(contgrid)
-        self.Cchi = datc[1].data.T
+        chic = []
+        for i in range(len(metal)):
+            chic.append(datc[i + 1].data)
+        self.Cchi = np.array(chic)
 
         datf = fits.open(featgrid)
-        self.Fchi = datf[1].data.T
+        chif = []
+        for i in range(len(metal)):
+            chif.append(datf[i + 1].data)
+        self.Fchi = np.array(chif)
 
         ####### Create normalize probablity marginalized over tau
         probc = np.exp(-self.Cchi.astype(np.float128) / 2)
         probf = np.exp(-self.Fchi.astype(np.float128) / 2)
 
-        APc = np.trapz(probc, self.metal)
+        TPc = np.trapz(probc, ultau, axis=2)
+        APc = np.trapz(TPc.T, self.metal)
         Cc = np.trapz(APc, self.age)
 
-        APf = np.trapz(probf, self.metal)
+        TPf = np.trapz(probf, ultau, axis=2)
+        APf = np.trapz(TPf.T, self.metal)
         Cf = np.trapz(APf, self.age)
 
-        probt =  (probc / Cc) * (probf / Cf)
+        probt = (probc / Cc) * (probf / Cf)
 
-        AP = np.trapz(probt, self.metal)
-        MP = np.trapz(probt.T, self.age)
-        C = np.trapz(AP, self.age)
+        TPt = np.trapz(probt, ultau, axis=2)
+        APt = np.trapz(TPt.T, self.metal)
+        MPt = np.trapz(TPt, self.age)
+        Ct = np.trapz(APt, self.age)
 
-        self.prob = probt / C
-        self.AP = AP/C
-        self.MP = MP/C
+        self.prob = probt / Ct
+        self.AP = APt/Ct
+        self.MP = MPt/Ct
 
         # ####### get best fit values
         print np.argwhere(self.prob == np.max(self.prob))
@@ -1591,11 +1598,11 @@ class Cluster(object):
 
 class Cluster_model(object):
     redshift = 1.1
-    tau = 0
 
-    def __init__(self, metal, age, cluster_wv, cluster_fl, cluster_er):
+    def __init__(self, metal, age, tau, cluster_wv, cluster_fl, cluster_er):
         self.metal = metal
         self.age = age
+        self.tau = tau
         mwv, mfl = np.load('../../../fsps_models_for_fit/cluster_models/m%s_a%s_t0_z1.1_clust_model.npy' % (metal, age))
         self.mwv = mwv
         self.mfl = mfl
@@ -1639,17 +1646,17 @@ def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
             IDC.append(i)
 
     #############Prep output files: 1-full, 2-cont, 3-feat###############
-    chifile1='chidat/%s_chidata.fits' % name
+    chifile1='../chidat/%s_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-    chifile2='chidat/%s_cont_chidata.fits' % name
+    chifile2='../chidat/%s_cont_chidata.fits' % name
     prihdr2 = fits.Header()
     prihdu2 = fits.PrimaryHDU(header=prihdr2)
     hdulist2 = fits.HDUList(prihdu2)
 
-    chifile3='chidat/%s_feat_chidata.fits' % name
+    chifile3='../chidat/%s_feat_chidata.fits' % name
     prihdr3 = fits.Header()
     prihdu3 = fits.PrimaryHDU(header=prihdr3)
     hdulist3 = fits.HDUList(prihdu3)
@@ -1705,7 +1712,7 @@ def Single_gal_fit(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     wv, fl, err = np.array([wv[7950 <= wv[wv <= 11000]], fl[7950 <= wv[wv <= 11000]], err[7950 <= wv[wv <= 11000]]])
 
     #############Prep output file###############
-    chifile='chidat/%s_chidata.fits' % name
+    chifile='../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -1752,7 +1759,7 @@ def Single_gal_fit_feat(spec, tau, metal, A, specz, galaxy, name, fsps=True):
                 wv[i] <= 4570 or 4810 <= wv[i] <= 4910 or 4975 <= wv[i] <= 5055 or 5110 <= wv[i] <= 5285:
             IDM.append(i)
     #############Prep output file###############
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -1800,7 +1807,7 @@ def Single_gal_fit_cont(spec, tau, metal, A, specz, galaxy, name, fsps=True):
                 wv[i] <= 4515 or 4570 <= wv[i] <= 4810 or 4910 <= wv[i] <= 4975 or 5055 <= wv[i] <= 5110:
             IDM.append(i)
     #############Prep output file###############
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -1903,7 +1910,7 @@ def Specz_fit_feat(galaxy, spec, rshift, name):
     wv, fl, err = np.array([wv[IDW], fl[IDW], err[IDW]])
 
     #############Prep output file###############
-    chifile='rshift_dat/%s_chidata.fits' % name
+    chifile='../rshift_dat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -2013,13 +2020,13 @@ def Analyze_specz(chifits, rshift,metal,age, name):
     print 'Best fit specz is %s' % rshift[np.argmax(prob)]
 
     rshiftdat=Table([rshift,prob],names=['rshifts','Pz'])
-    ascii.write(rshiftdat,'rshift_dat/%s_Pofz.dat' % name)
+    ascii.write(rshiftdat,'../rshift_dat/%s_Pofz.dat' % name)
 
     return
 
 
 def Highest_likelihood_model_galaxy(galaxy,rshift, bfmetal, bfage, tau):
-    wv,fl,er=np.load('spec_stacks_jan24/%s_stack.npy' % galaxy)
+    wv,fl,er=np.load('../spec_stacks_jan24/%s_stack.npy' % galaxy)
     fp='../../../fsps_models_for_fit/galaxy_models/'
 
     chi=[]
@@ -2033,7 +2040,7 @@ def Highest_likelihood_model_galaxy(galaxy,rshift, bfmetal, bfage, tau):
 
 
 def Analyze_Stack_avgage_single_gal_combine(cont_chifits,feat_chifits, speclist, rshift, tau, metal, age,
-                                            stack_scale=True,age_conv='tau_scale_ntau.dat'):
+                                            stack_scale=True,age_conv='../data/tau_scale_ntau.dat'):
     reg = np.arange(4000, 4210, 1)
     regint = np.zeros(len(speclist))
 
@@ -2121,7 +2128,7 @@ def Analyze_Stack_avgage_single_gal_combine(cont_chifits,feat_chifits, speclist,
 
 
 def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m, sim_a, sim_t, specz, gal_id,
-                                                name, f_weight=1, repeats=100,tau_scale='tau_scale_ntau.dat'):
+                                                name, f_weight=1, repeats=100,tau_scale='../data/tau_scale_ntau.dat'):
 
     mlist = []
     alist = []
@@ -2226,14 +2233,14 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
         if repeats <= len(alist):
             break
 
-    fn ='mcerr/' + name + '.dat'
+    fn ='../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
     return
 
 def Analyze_Stack_avgage_cont_feat_gal_age_correct(contfits, featfits, specz,
-                                                   tau, metal, age, age_conv='tau_scale_ntau.dat'):
+                                                   tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
     ####### Get maximum age
     max_age=Oldest_galaxy(specz)
 
@@ -2311,13 +2318,13 @@ class Galaxy(object):
 
     def __init__(self,galaxy_id):
         self.galaxy_id = galaxy_id
-        wv,fl,er = np.load('spec_stacks_jan24/%s_stack.npy' % self.galaxy_id)
+        wv,fl,er = np.load('../spec_stacks_jan24/%s_stack.npy' % self.galaxy_id)
         self.wv = wv[wv < 11300]
         self.fl = fl[wv < 11300]
         self.er = er[wv < 11300]
         self.contour = 0
 
-    def Get_best_fit(self,contfits,featfits,metal,age,tau,specz,age_conv='tau_scale_ntau.dat'):
+    def Get_best_fit(self,contfits,featfits,metal,age,tau,specz,age_conv='../data/tau_scale_ntau.dat'):
         self.metal = metal
         self.age = age
         self.tau = tau
@@ -2481,7 +2488,7 @@ def Stack_spec_normwmean(spec, redshifts, wv):
 
         wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
 
-        if spec[i] == 'spec_stacks_jan24/n21156_stack.npy':
+        if spec[i] == '../spec_stacks_jan24/n21156_stack.npy':
             IDer = []
             for ii in range(len(wave)):
                 if 4855 * (1 + redshifts[i]) <= wave[ii] <= 4880 * (1 + redshifts[i]):
@@ -2489,7 +2496,7 @@ def Stack_spec_normwmean(spec, redshifts, wv):
             error[IDer] = 1E8
             flux[IDer] = 0
 
-        if spec[i] == 'spec_stacks_jan24/s39170_stack.npy':
+        if spec[i] == '../spec_stacks_jan24/s39170_stack.npy':
             IDer = []
             for ii in range(len(wave)):
                 if 4860 * (1 + redshifts[i]) <= wave[ii] <= 4880 * (1 + redshifts[i]):
@@ -2497,7 +2504,7 @@ def Stack_spec_normwmean(spec, redshifts, wv):
             error[IDer] = 1E8
             flux[IDer] = 0
 
-        if spec[i] == 'spec_stacks_jan24/n34694_stack.npy':
+        if spec[i] == '../spec_stacks_jan24/n34694_stack.npy':
             IDer = []
             for ii in range(len(wave)):
                 if 4860 * (1 + redshifts[i]) <= wave[ii] <= 4880 * (1 + redshifts[i]):
@@ -2614,7 +2621,7 @@ def Stack_sim_model_normwmean(speclist, modellist, redshifts, wv_range):
     for i in range(len(speclist)):
         #######read in spectra
         wave, flux, error = np.load(speclist[i])
-        if speclist[i] == 'spec_stacks_jan24/s40597_stack.npy':
+        if speclist[i] == '../spec_stacks_jan24/s40597_stack.npy':
             IDW = []
             for ii in range(len(wave)):
                 if 7950 < wave[ii] < 11000:
@@ -2688,14 +2695,14 @@ def Model_fit_stack_normwmean_features(speclist, tau, metal, A, speczs,ids, wv_r
 
     #############Prep output file###############
 
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ###############Pickle spectra##################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -2776,14 +2783,14 @@ def Model_fit_stack_normwmean_cont(speclist, tau, metal, A, speczs,ids, wv_range
 
     #############Prep output file###############
 
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ###############Pickle spectra##################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -2858,14 +2865,14 @@ def Model_fit_stack_normwmean(speclist, tau, metal, A, speczs, ids, wv_range, na
 
     #############Prep output file###############
 
-    chifile = 'chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ###############Pickle spectra##################
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
 
@@ -2958,7 +2965,7 @@ def Model_fit_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, speczs, wv_
         chi = np.transpose(chigrid)
         ################Find best fit##################
 
-        scale = Readfile('tau_scale.dat', 1)
+        scale = Readfile('../data/tau_scale.dat', 1)
 
         overhead = []
         for i in range(len(scale)):
@@ -3003,9 +3010,9 @@ def Model_fit_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, speczs, wv_
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100, tau_scale='tau_scale_nage.dat'):
+                                                wv_range, name, pkl_name, repeats=100, tau_scale='../data/tau_scale_nage.dat'):
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
     alist = []
@@ -3071,7 +3078,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, 
         alist.append(A[idmax[1]])
         mlist.append(metal[idmax[0]])
 
-    fn ='mcerr/' + name + '.dat'
+    fn ='../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -3079,8 +3086,8 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, 
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100,tau_scale='tau_scale_nage.dat'):
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+                                                wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = np.zeros(repeats)
     alist = np.zeros(repeats)
@@ -3172,7 +3179,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
         alist[xx] = A[idmax[0]]
         mlist[xx]= metal[idmax[1]]
 
-    fn ='mcerr/' + name + '.dat'
+    fn ='../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -3180,9 +3187,9 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                     wv_range, name, pkl_name, repeats=100,tau_scale='tau_scale_nage.dat'):
+                                                     wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
     alist = []
@@ -3264,7 +3271,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, si
         alist.append(A[idmax[0]])
         mlist.append(metal[idmax[1]])
 
-    fn ='mcerr/' + name + '.dat'
+    fn ='../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -3272,9 +3279,9 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, si
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100,tau_scale='tau_scale_nage.dat'):
+                                                wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
 
-    pklname = 'pickled_mstacks/%s.pkl' % pkl_name
+    pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
     alist = []
@@ -3355,7 +3362,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, si
         alist.append(A[idmax[0]])
         mlist.append(metal[idmax[1]])
 
-    fn ='mcerr/' + name + '.dat'
+    fn ='../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -3393,7 +3400,7 @@ def Single_gal_fit_fsps(spec, tau, metal, A, specz, name):
     wv, fl, err = np.array([wv[wv < 11300], fl[wv < 11300], err[wv < 11300]])
 
     #############Prep output file###############
-    chifile='chidat/%s_chidata.fits' % name
+    chifile='../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -3547,8 +3554,8 @@ def Highest_likelihood_model(galaxy,speclist,rshift,bfmetal, bfage,tau,wv_range)
 
 def Get_parameters(gal_id, specz, metal, age, tau):
     Pr, bfage, bfmetal = Analyze_Stack_avgage_cont_feat_gal_age_correct(
-        'chidat/%s_apr6_galfit_cont_chidata.fits' % gal_id,
-        'chidat/%s_apr6_galfit_feat_chidata.fits' % gal_id,
+        '../chidat/%s_apr6_galfit_cont_chidata.fits' % gal_id,
+        '../chidat/%s_apr6_galfit_feat_chidata.fits' % gal_id,
         specz, np.array(tau), metal, age)
     a = [np.trapz(U, metal) for U in Pr]
     Ca = np.trapz(a, age)
@@ -3615,7 +3622,7 @@ class Stack(object):
 
             wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
 
-            if self.speclist[i] == 'spec_stacks_jan24/n21156_stack.npy':
+            if self.speclist[i] == '../spec_stacks_jan24/n21156_stack.npy':
                 IDer = []
                 for ii in range(len(wave)):
                     if 4855 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
@@ -3623,7 +3630,7 @@ class Stack(object):
                 error[IDer] = 1E8
                 flux[IDer] = 0
 
-            if self.speclist[i] == 'spec_stacks_jan24/s39170_stack.npy':
+            if self.speclist[i] == '../spec_stacks_jan24/s39170_stack.npy':
                 IDer = []
                 for ii in range(len(wave)):
                     if 4860 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
@@ -3631,7 +3638,7 @@ class Stack(object):
                 error[IDer] = 1E8
                 flux[IDer] = 0
 
-            if self.speclist[i] == 'spec_stacks_jan24/n34694_stack.npy':
+            if self.speclist[i] == '../spec_stacks_jan24/n34694_stack.npy':
                 IDer = []
                 for ii in range(len(wave)):
                     if 4860 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
@@ -3812,7 +3819,7 @@ class Combine_1D_parameters(object):
     ###Given a set of 3D chi square distributions these will return a 1D parameter distribution with mean and 1-sigma
 
     def __init__(self,cont_chifits,feat_chifits, speclist, rshift, tau, metal, age,
-                stack_scale=False , age_conv='tau_scale_ntau.dat'):
+                stack_scale=False , age_conv='../data/tau_scale_ntau.dat'):
         self.cont_chifits = cont_chifits
         self.feat_chifits = feat_chifits
         self.speclist = speclist
