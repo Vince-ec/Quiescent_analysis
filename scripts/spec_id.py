@@ -1476,6 +1476,8 @@ class Cluster(object):
                     amt.append(1)
             overhead[i] = sum(amt)
 
+        # todo fix analyze fit and feature and cont versions so they can work with full tau
+
         ######## Reshape likelihood to get average age instead of age when marginalized
         newchi = np.zeros(self.chi.shape)
 
