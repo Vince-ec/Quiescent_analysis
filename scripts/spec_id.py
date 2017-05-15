@@ -1452,7 +1452,7 @@ class Cluster(object):
         self.nc_fl = nc_fl
         self.nc_er = nc_er
 
-    def Analyze_fit(self, chigrid, metal, age, tau):
+    def Analyze_fit(self, chigrid, metal, age, tau,age_conv='../data/tau_scale_ntau.dat'):
         self.metal = metal
         self.age = age
         self.tau = tau
@@ -1465,8 +1465,29 @@ class Cluster(object):
             chi.append(dat[i + 1].data)
         self.chi = np.array(chi)
 
+        ####### Get scaling factor for tau reshaping
+        scale = Readfile(age_conv)
+
+        overhead = np.zeros(len(scale))
+        for i in range(len(scale)):
+            amt = []
+            for ii in range(len(age)):
+                if age[ii] > scale[i][-1]:
+                    amt.append(1)
+            overhead[i] = sum(amt)
+
+        ######## Reshape likelihood to get average age instead of age when marginalized
+        newchi = np.zeros(self.chi.shape)
+
+        for i in range(len(chi)):
+            if i == 0:
+                newchi[i] = chi[i]
+            else:
+                frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
         ####### Create normalize probablity marginalized over tau
-        prob = np.exp(-self.chi.astype(np.float128) / 2)
+        prob = np.exp(-newchi.astype(np.float128) / 2)
 
         TP = np.trapz(prob, ultau, axis=2)
         AP = np.trapz(TP.T, self.metal)
