@@ -1452,7 +1452,7 @@ class Cluster(object):
         self.nc_fl = nc_fl
         self.nc_er = nc_er
 
-    def Analyze_fit(self, chigrid, metal, age, tau,age_conv='../data/tau_scale_ntau.dat'):
+    def Analyze_fit(self, chigrid, metal, age, tau, age_conv='../data/tau_scale_cluster.dat'):
         self.metal = metal
         self.age = age
         self.tau = tau
@@ -1460,10 +1460,12 @@ class Cluster(object):
 
         ####### Read in file
         dat = fits.open(chigrid)
-        chi = []
+        chi = np.zeros([len(metal), len(age), len(tau)])
+
         for i in range(len(metal)):
-            chi.append(dat[i + 1].data)
-        self.chi = np.array(chi)
+            chi[i] = dat[i + 1].data
+
+        self.chi = chi
 
         ####### Get scaling factor for tau reshaping
         scale = Readfile(age_conv)
@@ -1479,24 +1481,26 @@ class Cluster(object):
         # todo fix analyze fit and feature and cont versions so they can work with full tau
 
         ######## Reshape likelihood to get average age instead of age when marginalized
-        newchi = np.zeros(self.chi.shape)
+        newchi = np.zeros(self.chi.T.shape)
 
-        for i in range(len(chi)):
+        for i in range(len(chi.T)):
             if i == 0:
-                newchi[i] = chi[i]
+                newchi[i] = chi.T[i]
             else:
-                frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+                frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
                 newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
-        prob = np.exp(-newchi.astype(np.float128) / 2)
+        prob = np.exp(-newchi.T.astype(np.float128) / 2)
 
         TP = np.trapz(prob, ultau, axis=2)
         AP = np.trapz(TP.T, self.metal)
         MP = np.trapz(TP, self.age)
         C = np.trapz(AP, self.age)
 
-        self.prob = prob / C
+        print TP.shape
+
+        self.prob = TP.T / C
         self.AP = AP/C
         self.MP = MP/C
 
@@ -1509,58 +1513,84 @@ class Cluster(object):
 
         print 'Best fit model is %s Gyr and %s Z' % (self.bfage, self.bfmetal)
 
-
-    def Analyze_fit_FC(self, contgrid,featgrid, metal, age, tau):
+    def Analyze_fit_FC(self, contgrid,featgrid, metal, age, tau, age_conv='../data/tau_scale_cluster.dat'):
         self.metal = metal
         self.age = age
         self.tau = tau
         ultau = np.append(0, np.power(10, np.array(self.tau)[1:] - 9))
 
         ####### Read in file
-        datc = fits.open(contgrid)
-        chic = []
-        for i in range(len(metal)):
-            chic.append(datc[i + 1].data)
-        self.Cchi = np.array(chic)
+        Cdat = fits.open(contgrid)
+        Cchi = np.zeros([len(metal), len(age), len(tau)])
 
-        datf = fits.open(featgrid)
-        chif = []
+        Fdat = fits.open(featgrid)
+        Fchi = np.zeros([len(metal), len(age), len(tau)])
+
         for i in range(len(metal)):
-            chif.append(datf[i + 1].data)
-        self.Fchi = np.array(chif)
+            Fchi[i] = Fdat[i + 1].data
+            Cchi[i] = Cdat[i + 1].data
+
+        Fchi = Fchi.T
+        Cchi = Cchi.T
+
+        ####### Get scaling factor for tau reshaping
+        scale = Readfile(age_conv)
+
+        overhead = np.zeros(len(scale))
+        for i in range(len(scale)):
+            amt = []
+            for ii in range(len(age)):
+                if age[ii] > scale[i][-1]:
+                    amt.append(1)
+            overhead[i] = sum(amt)
+
+        ######## Reshape likelihood to get average age instead of age when marginalized
+        newCchi = np.zeros(Cchi.shape)
+        newFchi = np.zeros(Fchi.shape)
+
+        for i in range(len(Cchi)):
+            if i == 0:
+                newCchi[i] = Cchi[i]
+                newFchi[i] = Fchi[i]
+            else:
+                cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
+                newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+                fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
+                newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
-        probc = np.exp(-self.Cchi.astype(np.float128) / 2)
-        probf = np.exp(-self.Fchi.astype(np.float128) / 2)
+        cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
 
-        TPc = np.trapz(probc, ultau, axis=2)
-        APc = np.trapz(TPc.T, self.metal)
-        Cc = np.trapz(APc, self.age)
+        Pc = np.trapz(cprob, ultau, axis=2)
+        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
 
-        TPf = np.trapz(probf, ultau, axis=2)
-        APf = np.trapz(TPf.T, self.metal)
-        Cf = np.trapz(APf, self.age)
+        fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
-        probt = (probc / Cc) * (probf / Cf)
+        Pf = np.trapz(fprob, ultau, axis=2)
+        Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
 
-        TPt = np.trapz(probt, ultau, axis=2)
-        APt = np.trapz(TPt.T, self.metal)
-        MPt = np.trapz(TPt, self.age)
-        Ct = np.trapz(APt, self.age)
+        comb_prob = cprob / Cc * fprob / Cf
 
-        self.prob = probt / Ct
-        self.AP = APt/Ct
-        self.MP = MPt/Ct
+        prob = np.trapz(comb_prob, ultau, axis=2)
+        C0 = np.trapz(np.trapz(prob, age, axis=1), metal)
+        prob /= C0
 
-        # ####### get best fit values
-        print np.argwhere(self.prob == np.max(self.prob))
-        [idmax] = np.argwhere(self.prob == np.max(self.prob))
+        ##### get best fit values
+        [idmax] = np.argwhere(prob == np.max(prob))
 
-        self.bfage = self.age[idmax[0]]
-        self.bfmetal = self.metal[idmax[1]]
+        self.prob = prob.T
+
+        AP = np.trapz(self.prob, self.metal)
+        MP = np.trapz(self.prob.T, self.age)
+        #
+        self.AP = AP/C0
+        self.MP = MP/C0
+
+        self.bfage = age[idmax[1]]
+        self.bfmetal = metal[idmax[0]]
 
         print 'Best fit model is %s Gyr and %s Z' % (self.bfage, self.bfmetal)
-
 
     def Get_contours(self):
         onesig, twosig = Likelihood_contours(self.age, self.metal, self.prob)

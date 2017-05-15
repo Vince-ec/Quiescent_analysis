@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="IpnbSettings">
+    <option name="workingDirectory" value="$PROJECT_DIR$/scripts" />
+    <option name="URL" value="http://localhost:8889" />
+  </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 2.7.5 (~/Ureka/python/bin/python2.7)" project-jdk-type="Python SDK" />
+</project>
