@@ -1349,23 +1349,9 @@ def Divide_cont_model(wave,flux, z):
     return w[7900 < wi[wi < 11100]], flx[7900 < wi[wi < 11100]]
 
 
-def Analyze_cluster(chifits, metal, age, tau):
-    ####### Read in file
-    chi = fits.open(chifits)[1].data
-
-    ####### Create normalize probablity marginalized over tau
-    prob = np.array(Norm_P_cluster(metal, age, chi)).astype(np.float128)
-
-    ####### get best fit values
-    [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
-
-    return prob.T, age[idmax[1]], metal[idmax[0]]
-
-
-def Cluster_fit(spec, metal, age, tau, name):
+def Cluster_fit(spec, metal, age, tau, rshift, name):
     #############Define cluster#################
-    cluster = Cluster(spec)
+    cluster = Cluster(spec,rshift)
     cluster.Remove_continuum()
 
     IDF = []
@@ -1408,7 +1394,7 @@ def Cluster_fit(spec, metal, age, tau, name):
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
-                cmodel = Cluster_model(metal[i], age[ii], tau[iii], cluster.wv, cluster.fl, cluster.er)
+                cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, cluster.wv, cluster.fl, cluster.er)
                 cmodel.Remove_continuum()
                 chigrid1[i][ii][iii] = Identify_stack(cluster.nc_fl, cluster.nc_er, cmodel.nc_fl)
                 chigrid2[i][ii][iii] = Identify_stack(cluster.nc_fl[IDC], cluster.nc_er[IDC], cmodel.nc_fl[IDC])
@@ -1439,14 +1425,13 @@ def Cluster_fit(spec, metal, age, tau, name):
 
 class Cluster(object):
 
-    def __init__(self,cluster_spec):
+    def __init__(self,cluster_spec,redshift):
         wv, fl, er = np.load(cluster_spec)
         self.wv = wv
         self.fl = fl
         self.er = er
         self.contour = [0]
-
-        self.redshift = 1.1
+        self.redshift = redshift
 
     def Remove_continuum(self):
         nc_wv, nc_fl, nc_er = Divide_cont(self.wv,self.fl,self.er,self.redshift)
@@ -1679,7 +1664,8 @@ class Cluster(object):
 
     def Best_fit_spec(self):
 
-        mspec = Cluster_model(self.bfmetal,self.bfage,self.nc_wv*(1 + self.redshift),self.nc_fl,self.nc_er)
+        mspec = Cluster_model(self.bfmetal,self.bfage, 0, self.redshift ,
+                              self.nc_wv*(1 + self.redshift),self.nc_fl,self.nc_er)
         mspec.Remove_continuum()
 
         self.mwv = mspec.wv
@@ -1690,13 +1676,13 @@ class Cluster(object):
 
 
 class Cluster_model(object):
-    redshift = 1.1
-
-    def __init__(self, metal, age, tau, cluster_wv, cluster_fl, cluster_er):
+    def __init__(self, metal, age, tau, redshift, cluster_wv, cluster_fl, cluster_er):
         self.metal = metal
         self.age = age
         self.tau = tau
-        mwv, mfl = np.load('../../../fsps_models_for_fit/cluster_models/m%s_a%s_t0_z1.1_clust_model.npy' % (metal, age))
+        self.redshift = redshift
+        mwv, mfl = np.load('../../../fsps_models_for_fit/cluster_models/m%s_a%s_t%s_z%s_clust_model.npy' %
+                           (self.metal, self.age, self.tau, self.redshift))
         self.mwv = mwv
         self.mfl = mfl
         imfl = interp1d(self.mwv,self.mfl)(cluster_wv)
@@ -1705,7 +1691,7 @@ class Cluster_model(object):
         self.wv=cluster_wv
 
     def Remove_continuum(self):
-        nc_wv, nc_fl = Divide_cont_model( self.mwv, self.mfl, 1.1)
+        nc_wv, nc_fl = Divide_cont_model( self.mwv, self.mfl, self.redshift)
         self.nc_wv = nc_wv
         self.nc_fl = nc_fl
 
