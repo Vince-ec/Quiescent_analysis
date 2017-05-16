@@ -1304,7 +1304,8 @@ def Divide_cont(wave,flux,error, z):
     flx = fl / C0
     err = er / C0
 
-    return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]], err[7800 < wi[wi < 11300]]
+    # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]], err[7800 < wi[wi < 11300]]
+    return w[7900 < wi[wi < 11100]], flx[7900 < wi[wi < 11100]], err[7900 < wi[wi < 11100]]
 
 
 def Divide_cont_model(wave,flux, z):
@@ -1344,7 +1345,8 @@ def Divide_cont_model(wave,flux, z):
 
     flx = fl / C0
 
-    return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]]
+    # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]]
+    return w[7900 < wi[wi < 11100]], flx[7900 < wi[wi < 11100]]
 
 
 def Analyze_cluster(chifits, metal, age, tau):
@@ -1460,15 +1462,27 @@ class Cluster(object):
 
         ####### Read in file
         dat = fits.open(chigrid)
-        chi = np.zeros([len(metal), len(age), len(tau)])
 
+        chi = np.zeros([len(metal), len(age), len(tau)])
         for i in range(len(metal)):
             chi[i] = dat[i + 1].data
 
+        if len(tau) == 1:
+            chi = chi.reshape([len(metal), len(age)])
+
         self.chi = chi
 
+
         ####### Get scaling factor for tau reshaping
-        scale = Readfile(age_conv)
+        convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
+                   9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+        convage = np.arange(.5,14.1,.1)
+
+        mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+        ma = [U for U in range(len(convage)) if convage[U] in age]
+
+        convtable = Readfile(age_conv)
+        scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
 
         overhead = np.zeros(len(scale))
         for i in range(len(scale)):
@@ -1483,22 +1497,26 @@ class Cluster(object):
         ######## Reshape likelihood to get average age instead of age when marginalized
         newchi = np.zeros(self.chi.T.shape)
 
-        for i in range(len(chi.T)):
-            if i == 0:
+        for i in range(len(scale)):
+            if i == 0 and len(tau) == 1:
+                newchi = chi.T
+            if i == 0 and len(tau) > 1:
                 newchi[i] = chi.T[i]
-            else:
+            if i > 0 and len(tau) > 1:
                 frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
                 newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)
 
-        TP = np.trapz(prob, ultau, axis=2)
+        if len(tau) == 1:
+            TP = prob
+        else:
+            TP = np.trapz(prob, ultau, axis=2)
+
         AP = np.trapz(TP.T, self.metal)
         MP = np.trapz(TP, self.age)
         C = np.trapz(AP, self.age)
-
-        print TP.shape
 
         self.prob = TP.T / C
         self.AP = AP/C
@@ -1521,20 +1539,31 @@ class Cluster(object):
 
         ####### Read in file
         Cdat = fits.open(contgrid)
-        Cchi = np.zeros([len(metal), len(age), len(tau)])
-
         Fdat = fits.open(featgrid)
-        Fchi = np.zeros([len(metal), len(age), len(tau)])
 
+        Cchi = np.zeros([len(metal), len(age), len(tau)])
+        Fchi = np.zeros([len(metal), len(age), len(tau)])
         for i in range(len(metal)):
             Fchi[i] = Fdat[i + 1].data
             Cchi[i] = Cdat[i + 1].data
+
+        if len(tau) == 1:
+            Cchi = Cchi.reshape([len(metal), len(age)])
+            Fchi = Fchi.reshape([len(metal), len(age)])
 
         Fchi = Fchi.T
         Cchi = Cchi.T
 
         ####### Get scaling factor for tau reshaping
-        scale = Readfile(age_conv)
+        convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
+                   9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+        convage =np.arange(.5,14.1,.1)
+
+        mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+        ma = [U for U in range(len(convage)) if convage[U] in age]
+
+        convtable = Readfile(age_conv)
+        scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
 
         overhead = np.zeros(len(scale))
         for i in range(len(scale)):
@@ -1548,11 +1577,14 @@ class Cluster(object):
         newCchi = np.zeros(Cchi.shape)
         newFchi = np.zeros(Fchi.shape)
 
-        for i in range(len(Cchi)):
-            if i == 0:
+        for i in range(len(scale)):
+            if i == 0 and len(tau) == 1:
+                newCchi = Cchi.T
+                newFchi = Fchi.T
+            if i == 0 and len(tau) > 1:
                 newCchi[i] = Cchi[i]
                 newFchi[i] = Fchi[i]
-            else:
+            if i > 0 and len(tau) > 1:
                 cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
                 newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
@@ -1561,18 +1593,26 @@ class Cluster(object):
 
         ####### Create normalize probablity marginalized over tau
         cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
-
-        Pc = np.trapz(cprob, ultau, axis=2)
-        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
-
         fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
-        Pf = np.trapz(fprob, ultau, axis=2)
+
+        if len(tau) == 1:
+            Pc = cprob.T
+            Pf = fprob.T
+        else:
+            Pc = np.trapz(cprob, ultau, axis=2)
+            Pf = np.trapz(fprob, ultau, axis=2)
+
+        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
         Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
 
         comb_prob = cprob / Cc * fprob / Cf
 
-        prob = np.trapz(comb_prob, ultau, axis=2)
+        if len(tau) == 1:
+            prob = comb_prob.T
+        else:
+            prob = np.trapz(comb_prob, ultau, axis=2)
+
         C0 = np.trapz(np.trapz(prob, age, axis=1), metal)
         prob /= C0
 
