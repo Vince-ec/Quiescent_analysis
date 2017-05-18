@@ -1266,11 +1266,13 @@ def Analyze_grism(chifits, tau, metal, age):
 """Cluster"""
 
 def Divide_cont(wave,flux,error, z):
-    wv = wave[7500 < wave[wave < 11500]]
-    fl = flux[7500 < wave[wave < 11500]]
-    er = error[7500 < wave[wave < 11500]]
+    IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
-    wi = wv
+    wv = wave[IDx]
+    fl = flux[IDx]
+    er = error[IDx]
+
+    wi = np.array(wv)
     w = wv / (1 + z)
 
     m2r = [3800, 3850, 3910, 4030, 4080, 4125, 4250, 4385, 4515, 4570, 4810, 4910, 4975, 5055, 5110, 5285]
@@ -1304,15 +1306,19 @@ def Divide_cont(wave,flux,error, z):
     flx = fl / C0
     err = er / C0
 
+    IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
     # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]], err[7800 < wi[wi < 11300]]
-    return w[7900 < wi[wi < 11100]], flx[7900 < wi[wi < 11100]], err[7900 < wi[wi < 11100]]
+    return w[IDr], flx[IDr], err[IDr]
+
 
 
 def Divide_cont_model(wave,flux, z):
-    wv = wave[7500 < wave[wave < 11500]]
-    fl = flux[7500 < wave[wave < 11500]]
+    IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
-    wi = wv
+    wv = wave[IDx]
+    fl = flux[IDx]
+
+    wi = np.array(wv)
     w = wv / (1 + z)
 
     m2r = [3800, 3850, 3910, 4030, 4080, 4125, 4250, 4385, 4515, 4570, 4810, 4910, 4975, 5055, 5110, 5285]
@@ -1345,8 +1351,9 @@ def Divide_cont_model(wave,flux, z):
 
     flx = fl / C0
 
+    IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
     # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]]
-    return w[7900 < wi[wi < 11100]], flx[7900 < wi[wi < 11100]]
+    return w[IDr], flx[IDr]
 
 
 def Cluster_fit(spec, metal, age, tau, rshift, name):
