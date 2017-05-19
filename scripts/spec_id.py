@@ -1556,12 +1556,12 @@ class Cluster(object):
         convage =np.arange(.5,14.1,.1)
 
         mt = [U for U in range(len(convtau)) if convtau[U] in tau]
-        ma = [U for U in range(len(convage)) if convage[U] in age]
+        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(age,1)]
 
         convtable = Readfile(age_conv)
         scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
 
-        overhead = np.zeros(len(scale))
+        overhead = np.zeros(len(scale)).astype(int)
         for i in range(len(scale)):
             amt = []
             for ii in range(len(age)):
