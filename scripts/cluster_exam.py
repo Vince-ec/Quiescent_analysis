@@ -13,16 +13,18 @@ cluster=[6528,6553,5927,6304,6388,6441]
 #        np.arange(8,14.1,.1),np.arange(8,14.1,.1),np.arange(8,14.1,.1)]
 
 age=np.arange(5,13.1,.1)
-# Cluster_fit('../clusters/ngc%s_griz_err_1.1.npy' % cluster[0], metal, age, tau, 1.1, 'ngc%s_err_al' % cluster[0])
+Cluster_fit('../clusters/ngc%s_griz_err_1.2.npy' % cluster[0], metal, age, tau, 1.2, 'ngc%s_err_al_1.2' % cluster[0])
+Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, tau, 1.35, 'ngc%s_err_al_1.35' % cluster[0])
 # Cluster_fit('../clusters/ngc%s_griz_err_1.1.npy' % cluster[0], metal, age, [0], 1.1, 'ngc%s_err_1.1' % cluster[0])
 # Cluster_fit('../clusters/ngc%s_griz_err_1.2.npy' % cluster[0], metal, age, [0], 1.2, 'ngc%s_err_1.2' % cluster[0])
-Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, [0], 1.35, 'ngc%s_err_1.35' % cluster[0])
+# Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, [0], 1.35, 'ngc%s_err_1.35' % cluster[0])
 
 age=np.arange(.5,14.1,.1)
-Cluster_fit('../clusters/ngc%s_griz_err_1.1.npy' % cluster[0], metal, age, tau, 1.1, 'ngc%s_err_al_fa' % cluster[0])
-Cluster_fit('../clusters/ngc%s_griz_err_1.1.npy' % cluster[0], metal, age, [0], 1.1, 'ngc%s_err_1.1_fa' % cluster[0])
-Cluster_fit('../clusters/ngc%s_griz_err_1.2.npy' % cluster[0], metal, age, [0], 1.2, 'ngc%s_err_1.2_fa' % cluster[0])
-Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, [0], 1.35, 'ngc%s_err_1.35_fa' % cluster[0])
+Cluster_fit('../clusters/ngc%s_griz_err_1.2.npy' % cluster[0], metal, age, tau, 1.2, 'ngc%s_err_al_fa_1.2' % cluster[0])
+Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, tau, 1.35, 'ngc%s_err_al_fa_1.35' % cluster[0])
+# Cluster_fit('../clusters/ngc%s_griz_err_1.1.npy' % cluster[0], metal, age, [0], 1.1, 'ngc%s_err_1.1_fa' % cluster[0])
+# Cluster_fit('../clusters/ngc%s_griz_err_1.2.npy' % cluster[0], metal, age, [0], 1.2, 'ngc%s_err_1.2_fa' % cluster[0])
+# Cluster_fit('../clusters/ngc%s_griz_err_1.35.npy' % cluster[0], metal, age, [0], 1.35, 'ngc%s_err_1.35_fa' % cluster[0])
 
 # age=np.arange(4,13.1,.1)
 # Cluster_fit('../clusters/ngc%s_griz_err.npy' % cluster[1],metal,age,tau,'ngc%s_err_al' % cluster[1])

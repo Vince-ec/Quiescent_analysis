@@ -1493,8 +1493,6 @@ class Cluster(object):
         ######## Reshape likelihood to get average age instead of age when marginalized
         newchi = np.zeros(self.chi.T.shape)
 
-        print overhead
-
         for i in range(len(scale)):
             if i == 0 and len(tau) == 1:
                 newchi = chi.T
