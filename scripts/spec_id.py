@@ -1265,8 +1265,12 @@ def Analyze_grism(chifits, tau, metal, age):
 
 """Cluster"""
 
-def Divide_cont(wave,flux,error, z):
-    IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
+
+def Divide_cont(wave, flux, error, z):
+    if z == 1.35:
+        IDx = [U for U in range(len(wave)) if 8000 < wave[U] < 11500]
+    else:
+        IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
     wv = wave[IDx]
     fl = flux[IDx]
@@ -1305,11 +1309,11 @@ def Divide_cont(wave,flux,error, z):
 
     flx = fl / C0
     err = er / C0
-
-    IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
-    # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]], err[7800 < wi[wi < 11300]]
+    if z == 1.35:
+        IDr = [U for U in range(len(wi)) if 8000 < wi[U] < 11100]
+    else:
+        IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
     return w[IDr], flx[IDr], err[IDr]
-
 
 
 def Divide_cont_model(wave,flux, z):
@@ -1351,8 +1355,10 @@ def Divide_cont_model(wave,flux, z):
 
     flx = fl / C0
 
-    IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
-    # return w[7800 < wi[wi < 11300]], flx[7800 < wi[wi < 11300]]
+    if z == 1.35:
+        IDr = [U for U in range(len(wi)) if 8000 < wi[U] < 11100]
+    else:
+        IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
     return w[IDr], flx[IDr]
 
 
@@ -1471,12 +1477,12 @@ class Cluster(object):
         convage = np.arange(.5,14.1,.1)
 
         mt = [U for U in range(len(convtau)) if convtau[U] in tau]
-        ma = [U for U in range(len(convage)) if convage[U] in age]
+        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(age,1)]
 
         convtable = Readfile(age_conv)
         scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
 
-        overhead = np.zeros(len(scale))
+        overhead = np.zeros(len(scale)).astype(int)
         for i in range(len(scale)):
             amt = []
             for ii in range(len(age)):
@@ -1484,10 +1490,10 @@ class Cluster(object):
                     amt.append(1)
             overhead[i] = sum(amt)
 
-        # todo fix analyze fit and feature and cont versions so they can work with full tau
-
         ######## Reshape likelihood to get average age instead of age when marginalized
         newchi = np.zeros(self.chi.T.shape)
+
+        print overhead
 
         for i in range(len(scale)):
             if i == 0 and len(tau) == 1:
