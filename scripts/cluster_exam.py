@@ -16,8 +16,8 @@ cluster=[6528, 6553,5927,6304,6388,6441]
 #           Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_al_%s' % (cluster[i],rshift[ii]))
 
 
-age=np.arange(9,14.1,.1)
+age=[np.arange(10,14.1,.1),np.arange(8,14.1,.1),np.arange(9.9,14.1,.1),np.arange(11.3,14.1,.1),np.arange(11.6,14.1,.1),np.arange(12.5,14.1,.1)]
 
 for i in range(len(cluster)):
     for ii in range(len(rshift)):
-          Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_9-14_%s' % (cluster[i],rshift[ii]))
+          Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age[i], tau, rshift[ii], 'ngc%s_err_va_%s' % (cluster[i],rshift[ii]))

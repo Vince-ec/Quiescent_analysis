@@ -1468,8 +1468,12 @@ class Cluster(object):
             if i == 0 and len(self.tau) > 1:
                 newchi[i] = self.chi.T[i]
             if i > 0 and len(self.tau) > 1:
-                frame = interp2d(self.metal, scale[i], self.chi.T[i])(self.metal, self.age[:-overhead[i]])
-                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+                if max(scale[i]) >= min(self.age):
+                    frame = interp2d(self.metal, scale[i], self.chi.T[i])(self.metal, self.age[:-overhead[i]])
+                if len(frame) == len(metal):
+                    newchi[i] = np.repeat([np.repeat(1E5, len(self.metal))], len(self.age), axis=0)
+                else:
+                    newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(self.metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)
