@@ -1317,6 +1317,8 @@ def Divide_cont(wave, flux, error, z):
 
 
 def Divide_cont_model(wave,flux, z):
+    #todo figure out why theres a difference in the model and non model remove continuum
+
     IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
     wv = wave[IDx]
@@ -1575,11 +1577,26 @@ class Cluster_model(object):
         C=Scale_model(cluster_fl, cluster_er, imfl)
         self.fl = imfl*C
         self.wv=cluster_wv
+        self.cluster_er = cluster_er
 
-    def Remove_continuum(self):
-        nc_wv, nc_fl = Divide_cont_model( self.mwv, self.mfl, self.redshift)
-        self.nc_wv = nc_wv
-        self.nc_fl = nc_fl
+    def Simulate_cluster(self):
+        IDx = [U for U in range(len(self.wv)) if 7900 < self.wv[U] < 11500]
+        self.simwv = self.wv[IDx]
+        self.simfl = self.fl[IDx] + np.random.normal(0,self.cluster_er[IDx])
+        self.simer = self.cluster_er[IDx]
+
+    def Remove_continuum(self,use_sim = False):
+        if use_sim == True:
+            nc_wv, nc_fl, nc_er = Divide_cont(self.simwv, self.simfl, self.simer, self.redshift)
+            self.nc_simwv = nc_wv
+            self.nc_simfl = nc_fl
+            self.nc_simer = nc_er
+        else:
+            nc_wv, nc_fl = Divide_cont_model( self.mwv, self.mfl, self.redshift)
+            self.nc_wv = nc_wv
+            self.nc_fl = nc_fl
+
+
 
 
 """Single Gal fit"""
