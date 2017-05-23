@@ -1367,42 +1367,15 @@ def Cluster_fit(spec, metal, age, tau, rshift, name):
     cluster = Cluster(spec,rshift)
     cluster.Remove_continuum()
 
-    IDF = []
-    for i in range(len(cluster.nc_wv)):
-        if 3800 <= cluster.nc_wv[i] <= 3850 or 3910 <= cluster.nc_wv[i] <= 4030 or 4080 <= cluster.nc_wv[i] <= 4125 or \
-                                4250 <= cluster.nc_wv[i] <= 4385 or 4515 <= cluster.nc_wv[i] <= 4570 or 4810 <= \
-                cluster.nc_wv[i] <= 4910 or 4975 <= cluster.nc_wv[i] <= 5055 or 5110 <= cluster.nc_wv[i] <= 5285:
-            IDF.append(i)
-
-    IDC = []
-    for i in range(len(cluster.nc_wv)):
-        if cluster.nc_wv[0] <= cluster.nc_wv[i] <= 3800 or 3850 <= cluster.nc_wv[i] <= 3910 or 4030 <= cluster.nc_wv[i]\
-                <= 4080 or 4125 <= cluster.nc_wv[i] <= 4250 or 4385 <= cluster.nc_wv[i] <= 4515 or 4570 <= \
-                cluster.nc_wv[i] <= 4810 or 4910 <= cluster.nc_wv[i] <= 4975 or 5055 <= cluster.nc_wv[i] <= 5110 or \
-                                5285 <= cluster.nc_wv[i] <= cluster.nc_wv[-1]:
-            IDC.append(i)
-
     #############Prep output files: 1-full, 2-cont, 3-feat###############
     chifile1='../chidat/%s_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-    chifile2='../chidat/%s_cont_chidata.fits' % name
-    prihdr2 = fits.Header()
-    prihdu2 = fits.PrimaryHDU(header=prihdr2)
-    hdulist2 = fits.HDUList(prihdu2)
-
-    chifile3='../chidat/%s_feat_chidata.fits' % name
-    prihdr3 = fits.Header()
-    prihdu3 = fits.PrimaryHDU(header=prihdr3)
-    hdulist3 = fits.HDUList(prihdu3)
-
 
     ##############Create chigrid and add to file#################
     chigrid1=np.zeros([len(metal),len(age),len(tau)])
-    chigrid2=np.zeros([len(metal),len(age),len(tau)])
-    chigrid3=np.zeros([len(metal),len(age),len(tau)])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
@@ -1410,27 +1383,14 @@ def Cluster_fit(spec, metal, age, tau, rshift, name):
                 cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, cluster.wv, cluster.fl, cluster.er)
                 cmodel.Remove_continuum()
                 chigrid1[i][ii][iii] = Identify_stack(cluster.nc_fl, cluster.nc_er, cmodel.nc_fl)
-                chigrid2[i][ii][iii] = Identify_stack(cluster.nc_fl[IDC], cluster.nc_er[IDC], cmodel.nc_fl[IDC])
-                chigrid3[i][ii][iii] = Identify_stack(cluster.nc_fl[IDF], cluster.nc_er[IDF], cmodel.nc_fl[IDF])
         inputgrid1 = np.array(chigrid1[i])
         spc1 = 'metal_%s' % metal[i]
         mchi1 = fits.ImageHDU(data=inputgrid1, name=spc1)
         hdulist1.append(mchi1)
 
-        inputgrid2 = np.array(chigrid2[i])
-        spc2 = 'metal_%s' % metal[i]
-        mchi2 = fits.ImageHDU(data=inputgrid2, name=spc2)
-        hdulist2.append(mchi2)
-
-        inputgrid3 = np.array(chigrid3[i])
-        spc3 = 'metal_%s' % metal[i]
-        mchi3 = fits.ImageHDU(data=inputgrid3, name=spc3)
-        hdulist3.append(mchi3)
 
     ################Write chigrid file###############
     hdulist1.writeto(chifile1)
-    hdulist2.writeto(chifile2)
-    hdulist3.writeto(chifile3)
 
     print 'Done!'
     return
@@ -1452,32 +1412,41 @@ class Cluster(object):
         self.nc_fl = nc_fl
         self.nc_er = nc_er
 
-    def Analyze_fit(self, chigrid, metal, age, tau, age_conv='../data/tau_scale_cluster.dat'):
+    def Analyze_fit(self, chigrid, metal, age, tau, cut_tau = False,tau_new=[] , age_conv='../data/tau_scale_cluster.dat'):
         self.metal = metal
         self.age = age
-        self.tau = tau
+        if cut_tau == False:
+            self.tau = tau
+        else:
+            self.tau = tau_new
+
         ultau = np.append(0, np.power(10, np.array(self.tau)[1:] - 9))
 
         ####### Read in file
         dat = fits.open(chigrid)
 
-        chi = np.zeros([len(metal), len(age), len(tau)])
-        for i in range(len(metal)):
+        chi = np.zeros([len(self.metal), len(self.age), len(tau)])
+        for i in range(len(self.metal)):
             chi[i] = dat[i + 1].data
 
         if len(tau) == 1:
-            chi = chi.reshape([len(metal), len(age)])
+            chi = chi.reshape([len(self.metal), len(self.age)])
 
         self.chi = chi
-
 
         ####### Get scaling factor for tau reshaping
         convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
                    9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
         convage = np.arange(.5,14.1,.1)
 
-        mt = [U for U in range(len(convtau)) if convtau[U] in tau]
-        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(age,1)]
+        mt = [U for U in range(len(convtau)) if convtau[U] in self.tau]
+        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(self.age,1)]
+
+        if cut_tau == True:
+            self.chi = self.chi[:,:,mt[0]:mt[-1]+1]
+
+        if len(self.tau) == 1:
+            self.chi = self.chi.reshape([len(self.metal), len(self.age)])
 
         convtable = Readfile(age_conv)
         scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
@@ -1485,8 +1454,8 @@ class Cluster(object):
         overhead = np.zeros(len(scale)).astype(int)
         for i in range(len(scale)):
             amt = []
-            for ii in range(len(age)):
-                if age[ii] > scale[i][-1]:
+            for ii in range(len(self.age)):
+                if self.age[ii] > scale[i][-1]:
                     amt.append(1)
             overhead[i] = sum(amt)
 
@@ -1494,21 +1463,24 @@ class Cluster(object):
         newchi = np.zeros(self.chi.T.shape)
 
         for i in range(len(scale)):
-            if i == 0 and len(tau) == 1:
-                newchi = chi.T
-            if i == 0 and len(tau) > 1:
-                newchi[i] = chi.T[i]
-            if i > 0 and len(tau) > 1:
-                frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
+            if i == 0 and len(self.tau) == 1:
+                newchi = self.chi.T
+            if i == 0 and len(self.tau) > 1:
+                newchi[i] = self.chi.T[i]
+            if i > 0 and len(self.tau) > 1:
+                frame = interp2d(self.metal, scale[i], self.chi.T[i])(self.metal, self.age[:-overhead[i]])
                 newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)
 
-        if len(tau) == 1:
+        if len(self.tau) == 1:
             TP = prob
         else:
             TP = np.trapz(prob, ultau, axis=2)
+
+        print TP.shape
+        print self.age.shape
 
         AP = np.trapz(TP.T, self.metal)
         MP = np.trapz(TP, self.age)
@@ -1524,107 +1496,6 @@ class Cluster(object):
 
         self.bfage = self.age[idmax[0]]
         self.bfmetal = self.metal[idmax[1]]
-
-        print 'Best fit model is %s Gyr and %s Z' % (self.bfage, self.bfmetal)
-
-    def Analyze_fit_FC(self, contgrid,featgrid, metal, age, tau, age_conv='../data/tau_scale_cluster.dat'):
-        self.metal = metal
-        self.age = age
-        self.tau = tau
-        ultau = np.append(0, np.power(10, np.array(self.tau)[1:] - 9))
-
-        ####### Read in file
-        Cdat = fits.open(contgrid)
-        Fdat = fits.open(featgrid)
-
-        Cchi = np.zeros([len(metal), len(age), len(tau)])
-        Fchi = np.zeros([len(metal), len(age), len(tau)])
-        for i in range(len(metal)):
-            Fchi[i] = Fdat[i + 1].data
-            Cchi[i] = Cdat[i + 1].data
-
-        if len(tau) == 1:
-            Cchi = Cchi.reshape([len(metal), len(age)])
-            Fchi = Fchi.reshape([len(metal), len(age)])
-
-        Fchi = Fchi.T
-        Cchi = Cchi.T
-
-        ####### Get scaling factor for tau reshaping
-        convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
-                   9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
-        convage =np.arange(.5,14.1,.1)
-
-        mt = [U for U in range(len(convtau)) if convtau[U] in tau]
-        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(age,1)]
-
-        convtable = Readfile(age_conv)
-        scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
-
-        overhead = np.zeros(len(scale)).astype(int)
-        for i in range(len(scale)):
-            amt = []
-            for ii in range(len(age)):
-                if age[ii] > scale[i][-1]:
-                    amt.append(1)
-            overhead[i] = sum(amt)
-
-        ######## Reshape likelihood to get average age instead of age when marginalized
-        newCchi = np.zeros(Cchi.shape)
-        newFchi = np.zeros(Fchi.shape)
-
-        for i in range(len(scale)):
-            if i == 0 and len(tau) == 1:
-                newCchi = Cchi.T
-                newFchi = Fchi.T
-            if i == 0 and len(tau) > 1:
-                newCchi[i] = Cchi[i]
-                newFchi[i] = Fchi[i]
-            if i > 0 and len(tau) > 1:
-                cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
-                newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
-
-                fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
-                newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
-
-        ####### Create normalize probablity marginalized over tau
-        cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
-        fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
-
-
-        if len(tau) == 1:
-            Pc = cprob.T
-            Pf = fprob.T
-        else:
-            Pc = np.trapz(cprob, ultau, axis=2)
-            Pf = np.trapz(fprob, ultau, axis=2)
-
-        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
-        Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
-
-        comb_prob = cprob / Cc * fprob / Cf
-
-        if len(tau) == 1:
-            prob = comb_prob.T
-        else:
-            prob = np.trapz(comb_prob, ultau, axis=2)
-
-        C0 = np.trapz(np.trapz(prob, age, axis=1), metal)
-        prob /= C0
-
-        ##### get best fit values
-        [idmax] = np.argwhere(prob == np.max(prob))
-
-        self.prob = prob.T
-
-        AP = np.trapz(self.prob, self.metal)
-        MP = np.trapz(self.prob.T, self.age)
-        #
-        self.AP = AP/C0
-        self.MP = MP/C0
-
-        self.bfage = age[idmax[1]]
-        self.bfmetal = metal[idmax[0]]
 
         print 'Best fit model is %s Gyr and %s Z' % (self.bfage, self.bfmetal)
 

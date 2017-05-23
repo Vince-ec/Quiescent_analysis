@@ -9,15 +9,15 @@ tau=[0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9
 
 age=np.arange(5,13.1,.1)
 rshift=[1.1,1.2,1.35]
-cluster=[6553,5927,6304,6388,6441]
+cluster=[6528, 6553,5927,6304,6388,6441]
+
+# for i in range(len(cluster)):
+#     for ii in range(len(rshift)):
+#           Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_al_%s' % (cluster[i],rshift[ii]))
+
+
+age=np.arange(9,14.1,.1)
 
 for i in range(len(cluster)):
     for ii in range(len(rshift)):
-          Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_al_%s' % (cluster[i],rshift[ii]))
-
-
-age=np.arange(.5,14.1,.1)
-
-for i in range(len(cluster)):
-    for ii in range(len(rshift)):
-          Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_al_fa_%s' % (cluster[i],rshift[ii]))
+          Cluster_fit('../clusters/ngc%s_griz_err_%s.npy' % (cluster[i],rshift[ii]), metal, age, tau, rshift[ii], 'ngc%s_err_9-14_%s' % (cluster[i],rshift[ii]))
