@@ -1556,9 +1556,11 @@ class Cluster(object):
 
     def __init__(self,cluster_spec,redshift):
         wv, fl, er = np.load(cluster_spec)
-        self.wv = wv
-        self.fl = fl
-        self.er = er
+        IDf = [U for U in range(len(fl)) if 0 < fl[U] < 1E10]
+
+        self.wv = wv[IDf]
+        self.fl = fl[IDf]
+        self.er = er[IDf]
         self.contour = [0]
         self.redshift = redshift
 
