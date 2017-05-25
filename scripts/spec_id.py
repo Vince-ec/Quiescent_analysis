@@ -1264,6 +1264,18 @@ def Analyze_grism(chifits, tau, metal, age):
 
 
 """Cluster"""
+def Get_mean(dist,x):
+    ix = np.linspace(x[0],x[-1],250)
+    idist = interp1d(x,dist)(ix)
+
+    m = 0
+    for i in range(len(ix)):
+        e = np.trapz(idist[0:i + 1], ix[0:i + 1])
+        if m == 0:
+            if e >= .5:
+                m = ix[i]
+
+    return m
 
 
 def Divide_cont(wave, flux, error, z):
@@ -1317,8 +1329,6 @@ def Divide_cont(wave, flux, error, z):
 
 
 def Divide_cont_model(wave,flux, z):
-    #todo figure out why theres a difference in the model and non model remove continuum
-
     IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
     wv = wave[IDx]
@@ -1396,6 +1406,150 @@ def Cluster_fit(spec, metal, age, tau, rshift, name):
 
     print 'Done!'
     return
+
+
+def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, name):
+    #############Define cluster#################
+    cluster = Cluster(spec,rshift)
+    cluster.Remove_continuum()
+    sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.nc_wv * (1 + cluster.redshift),
+                           cluster.nc_fl, cluster.nc_er)
+    sim_gc.Simulate_cluster()
+    sim_gc.Remove_continuum(use_sim=True)
+    sim_gc.Remove_continuum()
+
+
+    #############Prep output files: 1-full, 2-cont, 3-feat###############
+    chifile1='../chidat/%s_sim_nc_chidata.fits' % name
+    prihdr1 = fits.Header()
+    prihdu1 = fits.PrimaryHDU(header=prihdr1)
+    hdulist1 = fits.HDUList(prihdu1)
+
+    chifile2='../chidat/%s_sim_chidata.fits' % name
+    prihdr2 = fits.Header()
+    prihdu2 = fits.PrimaryHDU(header=prihdr2)
+    hdulist2 = fits.HDUList(prihdu2)
+
+    ##############Create chigrid and add to file#################
+    chigrid1=np.zeros([len(metal),len(age),len(tau)])
+    chigrid2=np.zeros([len(metal),len(age),len(tau)])
+
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
+                cmodel.Remove_continuum()
+                chigrid1[i][ii][iii] = Identify_stack(sim_gc.nc_simfl, sim_gc.nc_simer, cmodel.nc_fl)
+                chigrid2[i][ii][iii] = Identify_stack(sim_gc.simfl, sim_gc.simer, cmodel.fl)
+        inputgrid1 = np.array(chigrid1[i])
+        spc1 = 'metal_%s' % metal[i]
+        mchi1 = fits.ImageHDU(data=inputgrid1, name=spc1)
+        hdulist1.append(mchi1)
+        inputgrid2 = np.array(chigrid2[i])
+        spc2 = 'metal_%s' % metal[i]
+        mchi2 = fits.ImageHDU(data=inputgrid2, name=spc2)
+        hdulist2.append(mchi2)
+
+
+    ################Write chigrid file###############
+    hdulist1.writeto(chifile1)
+    hdulist2.writeto(chifile2)
+
+    print 'Done!'
+    return
+
+
+def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, rshift, name, repeats = 1000):
+    #############Define cluster#################
+    cluster = Cluster(spec,rshift)
+    cluster.Remove_continuum()
+    sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.nc_wv * (1 + cluster.redshift),
+                           cluster.nc_fl, cluster.nc_er)
+    sim_gc.Simulate_cluster()
+    sim_gc.Remove_continuum(use_sim=True)
+
+    drwv = sim_gc.simwv / (1 + rshift)
+
+    IDF = []
+    for i in range(len(drwv)):
+        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[i] <= 4385 or 4515 <= \
+                drwv[i] <= 4570 or 4810 <= drwv[i] <= 4910 or 4975 <= drwv[i] <= 5055 or 5110 <= drwv[i] <= 5285:
+            IDF.append(i)
+
+    IDC = []
+    for i in range(len(drwv)):
+        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[i] <= 4250 or 4385 <= \
+                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
+            IDC.append(i)
+
+
+    #############Prep output files: continuum and no continuum###############
+    mlist = []
+    alist = []
+
+    nc_mlist = []
+    nc_alist = []
+
+    #####Make model list
+    fmf = []
+    cmf = []
+    nc_model = []
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            cmodel = Cluster_model(metal[i], age[ii], 0, rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
+            cmodel.Remove_continuum()
+            fmf.append(cmodel.fl[IDF])
+            cmf.append(cmodel.fl[IDC])
+            nc_model.append(cmodel.nc_fl)
+
+    fmf = np.array(fmf)
+    cmf = np.array(cmf)
+    nc_model = np.array(nc_model)
+
+    #####run simulation the amount needed
+    for i in range(repeats):
+        sim_gc.Simulate_cluster()
+        sim_gc.Remove_continuum(use_sim=True)
+
+        Cfchi = np.sum(((sim_gc.simfl[IDF] - fmf) / sim_gc.simer[IDF]) ** 2, axis=1).reshape(
+            [len(metal), len(age)]).astype(np.float128)
+        Ccchi = np.sum(((sim_gc.simfl[IDC] - cmf) / sim_gc.simer[IDC]) ** 2, axis=1).reshape(
+            [len(metal), len(age)]).astype(np.float128)
+        NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape([len(metal), len(age)]).astype(np.float128)
+
+        ####### Create normalize probablity marginalized over tau
+        Pf = np.exp(-Cfchi.astype(np.float128) / 2)
+        Pc = np.exp(-Ccchi.astype(np.float128) / 2)
+        nc_P = np.exp(-NCchi.astype(np.float128) / 2)
+
+        Cf = np.trapz(np.trapz(Pf,age,axis=1), metal)
+        Cc = np.trapz(np.trapz(Pc,age,axis=1), metal)
+
+        P = (Pf / Cf)*(Pc / Cc)
+
+        AP = np.trapz(P.T, metal)
+        MP = np.trapz(P, age)
+        C = np.trapz(AP, age)
+
+        nc_AP = np.trapz(nc_P.T, metal)
+        nc_MP = np.trapz(nc_P, age)
+        Cnc = np.trapz(nc_AP, age)
+
+        AP/=C
+        MP/=C
+
+        nc_AP/=Cnc
+        nc_MP/=Cnc
+
+        mlist.append(Get_mean(MP,metal))
+        alist.append(Get_mean(AP,age))
+        nc_mlist.append(Get_mean(nc_MP,metal))
+        nc_alist.append(Get_mean(nc_AP,age))
+
+    np.save('../mcerr/%s_mcerr' % name, [mlist,alist])
+    np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist,nc_alist])
+
+    print 'Done!'
 
 
 class Cluster(object):
@@ -1592,11 +1746,9 @@ class Cluster_model(object):
             self.nc_simfl = nc_fl
             self.nc_simer = nc_er
         else:
-            nc_wv, nc_fl = Divide_cont_model( self.mwv, self.mfl, self.redshift)
+            nc_wv, nc_fl = Divide_cont_model( self.wv, self.fl, self.redshift)
             self.nc_wv = nc_wv
             self.nc_fl = nc_fl
-
-
 
 
 """Single Gal fit"""
@@ -2220,6 +2372,7 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
     ascii.write(dat, fn)
 
     return
+
 
 def Analyze_Stack_avgage_cont_feat_gal_age_correct(contfits, featfits, specz,
                                                    tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
