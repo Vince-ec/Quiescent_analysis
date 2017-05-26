@@ -1562,14 +1562,18 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
 
 
 def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
-                       name, repeats = 1000, age_conv='../data/tau_scale_cluster.dat'):
+                       name, use_galaxy = False, galaxy_id= '' , repeats = 1000, age_conv='../data/tau_scale_cluster.dat'):
     #############Define cluster#################
-    cluster = Cluster(spec,rshift)
-    cluster.Remove_continuum()
-    sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.nc_wv * (1 + cluster.redshift),
-                           cluster.nc_fl, cluster.nc_er)
-    sim_gc.Simulate_cluster()
-    sim_gc.Remove_continuum(use_sim=True)
+    if use_galaxy == True:
+        gal = Galaxy(galaxy_id)
+
+    else:
+
+        cluster = Cluster(spec,rshift)
+        cluster.Remove_continuum()
+        sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.wv, cluster.fl, cluster.er)
+        sim_gc.Simulate_cluster()
+        sim_gc.Remove_continuum(use_sim=True)
 
     drwv = sim_gc.simwv / (1 + rshift)
 
@@ -1657,11 +1661,18 @@ class Cluster(object):
 
     def __init__(self,cluster_spec,redshift):
         wv, fl, er = np.load(cluster_spec)
-        IDf = [U for U in range(len(fl)) if 0 < fl[U] < 1E10]
+        IDf = [U for U in range(len(fl)) if 0 < fl[U] < 1E5]#np.median(fl)*10]
 
         self.wv = wv[IDf]
         self.fl = fl[IDf]
         self.er = er[IDf]
+
+        IDf = [U for U in range(len(self.fl)) if self.fl[U] < np.median(self.fl)*10]
+
+        self.wv = self.wv[IDf]
+        self.fl = self.fl[IDf]
+        self.er = self.er[IDf]
+
         self.contour = [0]
         self.redshift = redshift
 
