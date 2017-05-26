@@ -1264,6 +1264,108 @@ def Analyze_grism(chifits, tau, metal, age):
 
 
 """Cluster"""
+def Analyze_MC_nc(chi,scale,overhead,metal,age,tau,ultau):
+    ######## Reshape likelihood to get average age instead of age when marginalized
+
+    if len(tau) == 1:
+        chi = chi.reshape([len(metal), len(age)])
+
+    newchi = np.zeros(chi.T.shape)
+
+    for i in range(len(scale)):
+        if i == 0 and len(tau) == 1:
+            newchi = chi.T
+        if i == 0 and len(tau) > 1:
+            newchi[i] = chi.T[i]
+        if i > 0 and len(tau) > 1:
+            if max(scale[i]) >= min(age):
+                frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
+            if len(frame) == len(metal):
+                newchi[i] = np.repeat([np.repeat(1E5, len(metal))], len(age), axis=0)
+            else:
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    prob = np.exp(-newchi.T.astype(np.float128) / 2)
+
+    if len(tau) == 1:
+        TP = prob
+    else:
+        TP = np.trapz(prob, ultau, axis=2)
+
+    AP = np.trapz(TP.T, metal)
+    MP = np.trapz(TP, age)
+    C = np.trapz(AP, age)
+
+    AP /= C
+    MP /= C
+
+    Mm = Get_mean(MP, metal)
+    Am = Get_mean(AP, age)
+    return Mm,Am
+
+
+def Analyze_MC(Cchi,Fchi,scale,overhead,metal,age,tau,ultau):
+    ######## Reshape likelihood to get average age instead of age when marginalized
+
+    if len(tau) == 1:
+        Cchi = Cchi.reshape([len(metal), len(age)])
+        Fchi = Fchi.reshape([len(metal), len(age)])
+
+    newCchi = np.zeros(Cchi.T.shape)
+    newFchi = np.zeros(Fchi.T.shape)
+
+    for i in range(len(scale)):
+        if i == 0 and len(tau) == 1:
+            newCchi = Cchi.T
+            newFchi = Fchi.T
+        if i == 0 and len(tau) > 1:
+            newCchi[i] = Cchi.T[i]
+            newFchi[i] = Fchi.T[i]
+        if i > 0 and len(tau) > 1:
+            if max(scale[i]) >= min(age):
+                frame = interp2d(metal, scale[i], Cchi.T[i])(metal, age[:-overhead[i]])
+                frame = interp2d(metal, scale[i], Fchi.T[i])(metal, age[:-overhead[i]])
+            if len(frame) == len(metal):
+                newCchi[i] = np.repeat([np.repeat(1E5, len(metal))], len(age), axis=0)
+                newFchi[i] = np.repeat([np.repeat(1E5, len(metal))], len(age), axis=0)
+            else:
+                newCchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+                newFchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    probC = np.exp(-newCchi.T.astype(np.float128) / 2)
+    probF = np.exp(-newFchi.T.astype(np.float128) / 2)
+
+    if len(tau) == 1:
+        TPC = probC
+        TPF = probF
+    else:
+        TPC = np.trapz(probC, ultau, axis=2)
+        TPF = np.trapz(probF, ultau, axis=2)
+
+    Cf = np.trapz(np.trapz(TPF,age,axis=1), metal)
+    Cc = np.trapz(np.trapz(TPC,age,axis=1), metal)
+
+    prob = (probF / Cf) * (probC / Cc)
+
+    if len(tau) == 1:
+        TP = prob
+    else:
+        TP = np.trapz(prob, ultau, axis=2)
+
+    AP = np.trapz(TP.T, metal)
+    MP = np.trapz(TP, age)
+    C = np.trapz(AP, age)
+
+    AP /= C
+    MP /= C
+
+    Mm = Get_mean(MP, metal)
+    Am = Get_mean(AP, age)
+    return Mm,Am
+
+
 def Get_mean(dist,x):
     ix = np.linspace(x[0],x[-1],250)
     idist = interp1d(x,dist)(ix)
@@ -1459,7 +1561,8 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
     return
 
 
-def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, rshift, name, repeats = 1000):
+def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
+                       name, repeats = 1000, age_conv='../data/tau_scale_cluster.dat'):
     #############Define cluster#################
     cluster = Cluster(spec,rshift)
     cluster.Remove_continuum()
@@ -1484,11 +1587,11 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, rshift, na
 
 
     #############Prep output files: continuum and no continuum###############
-    mlist = []
-    alist = []
+    mlist = np.zeros(repeats)
+    alist = np.zeros(repeats)
 
-    nc_mlist = []
-    nc_alist = []
+    nc_mlist = np.zeros(repeats)
+    nc_alist = np.zeros(repeats)
 
     #####Make model list
     fmf = []
@@ -1496,15 +1599,38 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, rshift, na
     nc_model = []
     for i in range(len(metal)):
         for ii in range(len(age)):
-            cmodel = Cluster_model(metal[i], age[ii], 0, rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
-            cmodel.Remove_continuum()
-            fmf.append(cmodel.fl[IDF])
-            cmf.append(cmodel.fl[IDC])
-            nc_model.append(cmodel.nc_fl)
+            for iii in range(len(tau)):
+                cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
+                cmodel.Remove_continuum()
+                fmf.append(cmodel.fl[IDF])
+                cmf.append(cmodel.fl[IDC])
+                nc_model.append(cmodel.nc_fl)
 
     fmf = np.array(fmf)
     cmf = np.array(cmf)
     nc_model = np.array(nc_model)
+
+    ###### Get scaling information
+
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 14.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
 
     #####run simulation the amount needed
     for i in range(repeats):
@@ -1512,39 +1638,14 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, rshift, na
         sim_gc.Remove_continuum(use_sim=True)
 
         Cfchi = np.sum(((sim_gc.simfl[IDF] - fmf) / sim_gc.simer[IDF]) ** 2, axis=1).reshape(
-            [len(metal), len(age)]).astype(np.float128)
+            [len(metal), len(age), len(tau)]).astype(np.float128)
         Ccchi = np.sum(((sim_gc.simfl[IDC] - cmf) / sim_gc.simer[IDC]) ** 2, axis=1).reshape(
-            [len(metal), len(age)]).astype(np.float128)
-        NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape([len(metal), len(age)]).astype(np.float128)
+            [len(metal), len(age), len(tau)]).astype(np.float128)
+        NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
 
-        ####### Create normalize probablity marginalized over tau
-        Pf = np.exp(-Cfchi.astype(np.float128) / 2)
-        Pc = np.exp(-Ccchi.astype(np.float128) / 2)
-        nc_P = np.exp(-NCchi.astype(np.float128) / 2)
-
-        Cf = np.trapz(np.trapz(Pf,age,axis=1), metal)
-        Cc = np.trapz(np.trapz(Pc,age,axis=1), metal)
-
-        P = (Pf / Cf)*(Pc / Cc)
-
-        AP = np.trapz(P.T, metal)
-        MP = np.trapz(P, age)
-        C = np.trapz(AP, age)
-
-        nc_AP = np.trapz(nc_P.T, metal)
-        nc_MP = np.trapz(nc_P, age)
-        Cnc = np.trapz(nc_AP, age)
-
-        AP/=C
-        MP/=C
-
-        nc_AP/=Cnc
-        nc_MP/=Cnc
-
-        mlist.append(Get_mean(MP,metal))
-        alist.append(Get_mean(AP,age))
-        nc_mlist.append(Get_mean(nc_MP,metal))
-        nc_alist.append(Get_mean(nc_AP,age))
+        mlist[i], alist[i] = Analyze_MC(Ccchi,Cfchi,scale,overhead,metal,age,tau,ultau)
+        nc_mlist[i], nc_alist[i] =Analyze_MC_nc(NCchi,scale,overhead,metal,age,tau,ultau)
 
     np.save('../mcerr/%s_mcerr' % name, [mlist,alist])
     np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist,nc_alist])
