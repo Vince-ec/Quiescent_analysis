@@ -1430,6 +1430,53 @@ def Divide_cont(wave, flux, error, z):
     return w[IDr], flx[IDr], err[IDr]
 
 
+def Divide_cont_gal(wave, flux, error, z):
+    IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
+
+    wv = wave[IDx]
+    fl = flux[IDx]
+    er = error[IDx]
+
+    wi = np.array(wv)
+    w = wv / (1 + z)
+
+    m2r = [3800, 3850, 3910, 4030, 4080, 4125, 4250, 4385, 4515, 4570, 4810, 4910, 4975, 5055, 5110, 5285]
+
+    Mask = np.zeros(len(w))
+    for i in range(len(Mask)):
+        if m2r[0] <= w[i] <= m2r[1]:
+            Mask[i] = 1
+        if m2r[2] <= w[i] <= m2r[3]:
+            Mask[i] = 1
+        if m2r[4] <= w[i] <= m2r[5]:
+            Mask[i] = 1
+        if m2r[6] <= w[i] <= m2r[7]:
+            Mask[i] = 1
+        if m2r[8] <= w[i] <= m2r[9]:
+            Mask[i] = 1
+        if m2r[8] <= w[i] <= m2r[9]:
+            Mask[i] = 1
+        if m2r[10] < w[i] <= m2r[11]:
+            Mask[i] = 1
+        if m2r[12] <= w[i] <= m2r[13]:
+            Mask[i] = 1
+        if m2r[14] <= w[i] <= m2r[15]:
+            Mask[i] = 1
+
+    maskw = np.ma.masked_array(w, Mask)
+
+    params = np.ma.polyfit(maskw, fl, 3)
+    C0 = np.polyval(params, w)
+
+    flx = fl / C0
+    err = er / C0
+    if z == 1.35:
+        IDr = [U for U in range(len(wi)) if 8000 < wi[U] < 11100]
+    else:
+        IDr = [U for U in range(len(wi)) if 7900 < wi[U] < 11100]
+    return w[IDr], flx[IDr], err[IDr]
+
+
 def Divide_cont_model(wave,flux, z):
     IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
@@ -1562,17 +1609,19 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
 
 
 def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
-                       name, use_galaxy = False, galaxy_id= '' , repeats = 1000, age_conv='../data/tau_scale_cluster.dat'):
+                       name, use_galaxy = False , repeats = 1000,
+                       age_conv='../data/tau_scale_cluster.dat'):
     #############Define cluster#################
     if use_galaxy == True:
-        gal = Galaxy(galaxy_id)
-
+        sim_gc = Galaxy_sim(sim_metal, sim_age, sim_tau, rshift)
+        sim_gc.Simulate()
+        sim_gc.Remove_continuum(use_sim=True)
     else:
 
         cluster = Cluster(spec,rshift)
         cluster.Remove_continuum()
         sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.wv, cluster.fl, cluster.er)
-        sim_gc.Simulate_cluster()
+        sim_gc.Simulate()
         sim_gc.Remove_continuum(use_sim=True)
 
     drwv = sim_gc.simwv / (1 + rshift)
@@ -1589,10 +1638,14 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
                 drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
             IDC.append(i)
 
+    IDT = np.arange(len(drwv))
 
     #############Prep output files: continuum and no continuum###############
     mlist = np.zeros(repeats)
     alist = np.zeros(repeats)
+
+    t_mlist = np.zeros(repeats)
+    t_alist = np.zeros(repeats)
 
     nc_mlist = np.zeros(repeats)
     nc_alist = np.zeros(repeats)
@@ -1600,18 +1653,33 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
     #####Make model list
     fmf = []
     cmf = []
+    t_model = []
     nc_model = []
-    for i in range(len(metal)):
-        for ii in range(len(age)):
-            for iii in range(len(tau)):
-                cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
-                cmodel.Remove_continuum()
-                fmf.append(cmodel.fl[IDF])
-                cmf.append(cmodel.fl[IDC])
-                nc_model.append(cmodel.nc_fl)
+
+    if use_galaxy == True:
+        for i in range(len(metal)):
+            for ii in range(len(age)):
+                for iii in range(len(tau)):
+                    cmodel = Galaxy_sim(metal[i], age[ii], tau[iii], rshift)
+                    cmodel.Remove_continuum()
+                    t_model.append(cmodel.mfl[IDT])
+                    fmf.append(cmodel.mfl[IDF])
+                    cmf.append(cmodel.mfl[IDC])
+                    nc_model.append(cmodel.nc_fl)
+    else:
+        for i in range(len(metal)):
+            for ii in range(len(age)):
+                for iii in range(len(tau)):
+                    cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
+                    cmodel.Remove_continuum()
+                    t_model.append(cmodel.fl)
+                    fmf.append(cmodel.fl[IDF])
+                    cmf.append(cmodel.fl[IDC])
+                    nc_model.append(cmodel.nc_fl)
 
     fmf = np.array(fmf)
     cmf = np.array(cmf)
+    t_model = np.array(t_model)
     nc_model = np.array(nc_model)
 
     ###### Get scaling information
@@ -1638,21 +1706,25 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
 
     #####run simulation the amount needed
     for i in range(repeats):
-        sim_gc.Simulate_cluster()
+        sim_gc.Simulate()
         sim_gc.Remove_continuum(use_sim=True)
 
         Cfchi = np.sum(((sim_gc.simfl[IDF] - fmf) / sim_gc.simer[IDF]) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
         Ccchi = np.sum(((sim_gc.simfl[IDC] - cmf) / sim_gc.simer[IDC]) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
+        Tchi = np.sum(((sim_gc.simfl - t_model) / sim_gc.simer) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
         NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
-
+# todo fix total flux models
         mlist[i], alist[i] = Analyze_MC(Ccchi,Cfchi,scale,overhead,metal,age,tau,ultau)
+        t_mlist[i], t_alist[i] =Analyze_MC_nc(Tchi,scale,overhead,metal,age,tau,ultau)
         nc_mlist[i], nc_alist[i] =Analyze_MC_nc(NCchi,scale,overhead,metal,age,tau,ultau)
 
     np.save('../mcerr/%s_mcerr' % name, [mlist,alist])
     np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist,nc_alist])
+    np.save('../mcerr/%s_t_mcerr' % name, [t_mlist,t_alist])
 
     print 'Done!'
 
@@ -1847,15 +1919,23 @@ class Cluster_model(object):
         self.wv=cluster_wv
         self.cluster_er = cluster_er
 
-    def Simulate_cluster(self):
-        IDx = [U for U in range(len(self.wv)) if 7900 < self.wv[U] < 11500]
+
+    def Simulate(self):
+        IDx = [U for U in range(len(self.wv)) if self.wv[U] < 11100]
+        flxer = self.fl + np.random.normal(0,self.cluster_er)
+
         self.simwv = self.wv[IDx]
-        self.simfl = self.fl[IDx] + np.random.normal(0,self.cluster_er[IDx])
+        self.simfl = flxer[IDx]
         self.simer = self.cluster_er[IDx]
+
+        self.simwv_fwl = self.wv
+        self.simfl_fwl = flxer
+        self.simer_fwl = self.cluster_er
+
 
     def Remove_continuum(self,use_sim = False):
         if use_sim == True:
-            nc_wv, nc_fl, nc_er = Divide_cont(self.simwv, self.simfl, self.simer, self.redshift)
+            nc_wv, nc_fl, nc_er = Divide_cont(self.simwv_fwl, self.simfl_fwl, self.simer_fwl, self.redshift)
             self.nc_simwv = nc_wv
             self.nc_simfl = nc_fl
             self.nc_simer = nc_er
@@ -1865,8 +1945,53 @@ class Cluster_model(object):
             self.nc_fl = nc_fl
 
 
-"""Single Gal fit"""
+class Galaxy_sim(object):
 
+    def __init__(self, metal, age, tau, redshift):
+        wv,fl,er = np.load('../spec_stacks_jan24/s39170_stack.npy')
+        self.wv = wv[wv < 11100]
+        self.fl = fl[wv < 11100]
+        self.er = er[wv < 11100]
+        self.wv_fwl = wv
+        self.fl_fwl = fl
+        self.er_fwl = er
+        self.metal = metal
+        self.age = age
+        self.tau = tau
+        self.redshift = redshift
+        mwv, mfl = np.load('../../../fsps_models_for_fit/cluster_models/m%s_a%s_t%s_z%s_clust_model.npy' %
+                           (self.metal, self.age, self.tau, self.redshift))
+        imfl = interp1d(mwv, mfl)(self.wv)
+        C=Scale_model(self.fl, self.er, imfl)
+        imfl_fwl = interp1d(mwv, mfl)(self.wv_fwl)
+        C_fwl=Scale_model(self.fl_fwl, self.er_fwl, imfl_fwl)
+        self.mfl = imfl*C
+        self.mfl_fwl = imfl_fwl*C_fwl
+
+    def Simulate(self):
+
+        flxer = self.mfl_fwl + np.random.normal(0,self.er_fwl)
+        self.simwv_fwl=self.wv_fwl
+        self.simfl_fwl=flxer
+        self.simer_fwl=self.er_fwl
+
+        self.simwv = self.wv
+        self.simfl = flxer[self.wv_fwl<11100]
+        self.simer = self.er
+
+    def Remove_continuum(self,use_sim = False):
+        if use_sim == True:
+            nc_wv, nc_fl, nc_er = Divide_cont_gal(self.simwv_fwl, self.simfl_fwl, self.simer_fwl, self.redshift)
+            self.nc_simwv = nc_wv
+            self.nc_simfl = nc_fl
+            self.nc_simer = nc_er
+        else:
+            nc_wv, nc_fl = Divide_cont_model( self.wv_fwl, self.mfl_fwl, self.redshift)
+            self.nc_wv = nc_wv
+            self.nc_fl = nc_fl
+
+
+"""Single Galaxy"""
 def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     #############Read in spectra#################
     wv, fl, err = np.load(spec)
@@ -2568,9 +2693,9 @@ class Galaxy(object):
     def __init__(self,galaxy_id):
         self.galaxy_id = galaxy_id
         wv,fl,er = np.load('../spec_stacks_jan24/%s_stack.npy' % self.galaxy_id)
-        self.wv = wv[wv < 11300]
-        self.fl = fl[wv < 11300]
-        self.er = er[wv < 11300]
+        self.wv = wv[wv < 11100]
+        self.fl = fl[wv < 11100]
+        self.er = er[wv < 11100]
         self.contour = 0
 
     def Get_best_fit(self,contfits,featfits,metal,age,tau,specz,age_conv='../data/tau_scale_ntau.dat'):
@@ -2728,7 +2853,6 @@ class Galaxy(object):
 
 
 """Spec normmean"""
-
 def Stack_spec_normwmean(spec, redshifts, wv):
     flgrid = np.zeros([len(spec), len(wv)])
     errgrid = np.zeros([len(spec), len(wv)])
