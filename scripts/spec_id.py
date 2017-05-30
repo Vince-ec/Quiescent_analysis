@@ -1264,6 +1264,41 @@ def Analyze_grism(chifits, tau, metal, age):
 
 
 """Cluster"""
+def Analyze_MCLH(chi,scale,overhead,metal,age,tau,ultau):
+    ######## Reshape likelihood to get average age instead of age when marginalized
+
+    if len(tau) == 1:
+        chi = chi.reshape([len(metal), len(age)])
+
+    newchi = np.zeros(chi.T.shape)
+
+    for i in range(len(scale)):
+        if i == 0 and len(tau) == 1:
+            newchi = chi.T
+        if i == 0 and len(tau) > 1:
+            newchi[i] = chi.T[i]
+        if i > 0 and len(tau) > 1:
+            if max(scale[i]) >= min(age):
+                frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
+            if len(frame) == len(metal):
+                newchi[i] = np.repeat([np.repeat(1E5, len(metal))], len(age), axis=0)
+            else:
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    prob = np.exp(-newchi.T.astype(np.float128) / 2)
+
+    if len(tau) == 1:
+        TP = prob
+    else:
+        TP = np.trapz(prob, ultau, axis=2)
+
+    AP = np.trapz(TP.T, metal)
+    C = np.trapz(AP, age)
+
+    return prob / C
+
+
 def Analyze_MC_nc(chi,scale,overhead,metal,age,tau,ultau):
     ######## Reshape likelihood to get average age instead of age when marginalized
 
@@ -1364,6 +1399,34 @@ def Analyze_MC(Cchi,Fchi,scale,overhead,metal,age,tau,ultau):
     Mm = Get_mean(MP, metal)
     Am = Get_mean(AP, age)
     return Mm,Am
+
+
+def Combine_LH(Pc,Pf,metal,age,tau,ultau):
+    prob = Pf * Pc
+
+    if len(tau) == 1:
+        TP = prob
+    else:
+        TP = np.trapz(prob, ultau, axis=2)
+
+    AP = np.trapz(TP.T, metal)
+    C = np.trapz(AP, age)
+
+
+    return prob / C
+
+
+def Marginalize_and_norm(P,metal,age,tau,ultau):
+    if len(tau) == 1:
+        TP = P
+    else:
+        TP = np.trapz(P, ultau, axis=2)
+
+    AP = np.trapz(TP.T, metal)
+    C = np.trapz(AP, age)
+
+
+    return TP / C
 
 
 def Get_mean(dist,x):
@@ -1725,6 +1788,135 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
     np.save('../mcerr/%s_mcerr' % name, [mlist,alist])
     np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist,nc_alist])
     np.save('../mcerr/%s_t_mcerr' % name, [t_mlist,t_alist])
+
+    print 'Done!'
+
+
+def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
+                       name, use_galaxy = False , repeats = 1000,
+                       age_conv='../data/tau_scale_cluster.dat'):
+    #############Define cluster#################
+    if use_galaxy == True:
+        sim_gc = Galaxy_sim(sim_metal, sim_age, sim_tau, rshift)
+        sim_gc.Simulate()
+        sim_gc.Remove_continuum(use_sim=True)
+    else:
+
+        cluster = Cluster(spec,rshift)
+        cluster.Remove_continuum()
+        sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.wv, cluster.fl, cluster.er)
+        sim_gc.Simulate()
+        sim_gc.Remove_continuum(use_sim=True)
+
+    drwv = sim_gc.simwv / (1 + rshift)
+
+    IDF = []
+    for i in range(len(drwv)):
+        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[i] <= 4385 or 4515 <= \
+                drwv[i] <= 4570 or 4810 <= drwv[i] <= 4910 or 4975 <= drwv[i] <= 5055 or 5110 <= drwv[i] <= 5285:
+            IDF.append(i)
+
+    IDC = []
+    for i in range(len(drwv)):
+        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[i] <= 4250 or 4385 <= \
+                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
+            IDC.append(i)
+
+    IDT = np.arange(len(drwv))
+
+    #############Prep output files: continuum and no continuum###############
+    double_fit = np.ones([len(metal),len(age),len(tau)])
+
+    total_fl = np.ones([len(metal),len(age),len(tau)])
+
+    no_cont = np.ones([len(metal),len(age),len(tau)])
+
+    #####Make model list
+    fmf = []
+    cmf = []
+    t_model = []
+    nc_model = []
+
+    if use_galaxy == True:
+        for i in range(len(metal)):
+            for ii in range(len(age)):
+                for iii in range(len(tau)):
+                    cmodel = Galaxy_sim(metal[i], age[ii], tau[iii], rshift)
+                    cmodel.Remove_continuum()
+                    t_model.append(cmodel.mfl[IDT])
+                    fmf.append(cmodel.mfl[IDF])
+                    cmf.append(cmodel.mfl[IDC])
+                    nc_model.append(cmodel.nc_fl)
+    else:
+        for i in range(len(metal)):
+            for ii in range(len(age)):
+                for iii in range(len(tau)):
+                    cmodel = Cluster_model(metal[i], age[ii], tau[iii], rshift, sim_gc.wv, sim_gc.fl, sim_gc.cluster_er)
+                    cmodel.Remove_continuum()
+                    t_model.append(cmodel.fl)
+                    fmf.append(cmodel.fl[IDF])
+                    cmf.append(cmodel.fl[IDC])
+                    nc_model.append(cmodel.nc_fl)
+
+    fmf = np.array(fmf)
+    cmf = np.array(cmf)
+    t_model = np.array(t_model)
+    nc_model = np.array(nc_model)
+
+    ###### Get scaling information
+
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 14.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    #####run simulation the amount needed
+    for i in range(repeats):
+        sim_gc.Simulate()
+        sim_gc.Remove_continuum(use_sim=True)
+
+        Cfchi = np.sum(((sim_gc.simfl[IDF] - fmf) / sim_gc.simer[IDF]) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
+        Ccchi = np.sum(((sim_gc.simfl[IDC] - cmf) / sim_gc.simer[IDC]) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
+        Tchi = np.sum(((sim_gc.simfl - t_model) / sim_gc.simer) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
+        NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128)
+
+        pc = Analyze_MCLH(Ccchi,scale,overhead,metal,age,tau,ultau)
+        pf = Analyze_MCLH(Cfchi,scale,overhead,metal,age,tau,ultau)
+        Pd = Combine_LH(pc,pf,metal,age,tau,ultau)
+        Pt = Analyze_MCLH(Tchi,scale,overhead,metal,age,tau,ultau)
+        Pnc = Analyze_MCLH(NCchi,scale,overhead,metal,age,tau,ultau)
+
+        double_fit = (double_fit * Pd).astype(np.float128)
+        total_fl = (total_fl * Pt).astype(np.float128)
+        no_cont = (no_cont * Pnc).astype(np.float128)
+
+    Pdf = Marginalize_and_norm(double_fit,metal,age,tau,ultau)
+    Ptf = Marginalize_and_norm(total_fl,metal,age,tau,ultau)
+    Pnc = Marginalize_and_norm(no_cont,metal,age,tau,ultau)
+
+
+    np.save('../mcerr/%s_LH_mcerr' % name, Pdf)
+    np.save('../mcerr/%s_nc_LH_mcerr' % name, Pnc)
+    np.save('../mcerr/%s_t_LH_mcerr' % name, Ptf)
 
     print 'Done!'
 
