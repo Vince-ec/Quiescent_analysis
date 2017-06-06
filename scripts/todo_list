@@ -1,0 +1,4 @@
+# todo check for galaxies that are missing in new data
+# todo check all other galaxies for H band magnitude
+# todo if galaxy missing and H band mag < 25 record
+# todo send list of all galaxies that are missing in new data and with H band < 25

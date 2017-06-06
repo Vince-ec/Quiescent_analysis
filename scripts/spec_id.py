@@ -1780,7 +1780,7 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
             [len(metal), len(age), len(tau)]).astype(np.float128)
         NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
-# todo fix total flux models
+
         mlist[i], alist[i] = Analyze_MC(Ccchi,Cfchi,scale,overhead,metal,age,tau,ultau)
         t_mlist[i], t_alist[i] =Analyze_MC_nc(Tchi,scale,overhead,metal,age,tau,ultau)
         nc_mlist[i], nc_alist[i] =Analyze_MC_nc(NCchi,scale,overhead,metal,age,tau,ultau)
