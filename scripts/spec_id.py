@@ -6,12 +6,14 @@ from astropy.cosmology import Planck13 as cosmo
 import sympy as sp
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import matplotlib.image as mpimg
 from astropy.io import fits
 from vtl.Readfile import Readfile
 from astropy.io import ascii
 from astropy.table import Table
 import cPickle
 import os
+from glob import glob
 from time import time
 import seaborn as sea
 
@@ -3042,6 +3044,168 @@ class Galaxy(object):
         else:
             plt.show()
         plt.close()
+
+
+
+class Galaxy_set(object):
+
+    def __init__(self,galaxy_id):
+        self.galaxy_id = galaxy_id
+
+        # gal_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id
+        # test
+        gal_dir = '/Users/Vince.ec/Clear_data/test_data/%s/' % self.galaxy_id
+        one_d = glob(gal_dir + '*1D.fits')
+        self.two_d = glob(gal_dir + '*png')
+        one_d_l = [len(U) for U in one_d]
+        self.one_d_stack = one_d[np.argmin(one_d_l)]
+        self.one_d_list = np.delete(one_d, [np.argmin(one_d_l)])
+
+
+    def Get_flux(self,FILE):
+        observ = fits.open(FILE)
+        w = np.array(observ[1].data.field('wave'))
+        f = np.array(observ[1].data.field('flux')) * 1E-17
+        sens = np.array(observ[1].data.field('sensitivity'))
+        contam = np.array(observ[1].data.field('contam')) * 1E-17
+        e = np.array(observ[1].data.field('error')) * 1E-17
+        f -= contam
+        f /= sens
+        e /= sens
+
+        INDEX = []
+        for i in range(len(w)):
+            if w[i] < 11900:
+                INDEX.append(i)
+
+        w = w[INDEX]
+        f = f[INDEX]
+        e = e[INDEX]
+
+        # for i in range(len(f)):
+        #     if f[i] < 0:
+        #         f[i] = 0
+
+        return w, f, e
+
+
+    def Display_spec(self):
+        if len(self.two_d) > 0:
+            os.system("open " + self.two_d)
+
+        self.quality = np.repeat(1, len(self.one_d_list))
+        self.Mask = np.zeros([len(self.one_d_list), 2])
+        p_names = []
+
+        ### examine each spectra and assign quality
+        for i in range(len(ind_gal_img)):
+            p_names.append(ind_gal_img[i][48:74])
+
+            quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
+            if quality[i] != 0:
+                minput = int(input('Mask region: (0 if no mask needed)'))
+                if minput != 0:
+                    rinput = int(input('Lower bounds'))
+                    linput = int(input('Upper bounds'))
+                    Mask[i] = [rinput, linput]
+
+        for i in range(len(self.one_d_list)):
+            wv, fl, er = Get_flux(self.one_d_list[i])
+            IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+            plt.figure(figsize=[10,5])
+            plt.plot(wv[IDX],fl[IDX])
+            plt.plot(wv[IDX],er[IDX])
+            plt.ylim(min(fl[IDX]),max(fl[IDX]))
+            plt.xlim(7800,11500)
+            # plt.title(self.one_d_list[i].replace(
+            #     '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id,''))
+            plt.title(self.one_d_list[i].replace(
+                '/Users/Vince.ec/Clear_data/test_data/%s/' % self.galaxy_id,''))
+            plt.show()
+
+
+
+
+    def Quality_check(self):
+        self.quality = np.ones(len(self.one_d_list))
+        self.Mask = np.zeros([len(self.one_d_list), 2])
+        p_names = []
+
+        ### examine each spectra and assign quality
+        for i in range(len(self.one_d_list)):
+            p_names.append(self.one_d_list[i][48:74])
+            self.quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
+            if self.quality[i] != 0:
+                minput = int(input('Mask region: (0 if no mask needed)'))
+                if minput != 0:
+                    rinput = int(input('Lower bounds'))
+                    linput = int(input('Upper bounds'))
+                    self.Mask[i] = [rinput, linput]
+
+    def Get_wv_list(self):
+        W = []
+        minw = np.zeros(len(self.one_d_list))
+        maxw = np.zeros(len(self.one_d_list))
+        for i in range(len(self.one_d_list)):
+            wv, fl, er = Get_flux(self.one_d_list[i])
+            minw[i] = wv[0]
+            maxw[i] = wv[-1]
+            W.append(wv)
+
+        W = np.array(W)
+
+        # min_all = np.argwhere(W[i] >= max(minw))
+        # max_all = np.argwhere(W[i] <= min(maxw))
+        # W[i] = W[i][min_all[0][0]:max_all[-1][0]]
+        #
+        # self.wv_set = red_W
+
+
+    def Mean_stack_galaxy(self,wv):
+        # Define grids used for stacking
+        flgrid = np.zeros([len(self.one_d_list), len(wv)])
+        errgrid = np.zeros([len(self.one_d_list), len(wv)])
+
+        # Get wv,fl,er for each spectra
+        for i in range(len(self.one_d_list)):
+            wave, flux, error = self.Get_flux(self.one_d_list[i])
+            ifl = interp1d(wave, flux)
+            ier = interp1d(wave, error)
+            flgrid[i] = ifl(wv)
+            errgrid[i] = ier(wv)
+        ################
+
+        flgrid = np.transpose(flgrid)
+        errgrid = np.transpose(errgrid)
+        weigrid = errgrid ** (-2)
+        infmask = np.isinf(weigrid)
+        weigrid[infmask] = 0
+        ################
+
+        stack, err = np.zeros([2, len(wv)])
+        for i in range(len(wv)):
+            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
+            err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
+        ################
+
+        return np.array(wv), np.array(stack), np.array(err)
+
+
+    def Stack_galaxy(self):
+        self.Get_wv_list()
+
+        swv,sfl,ser=[[],[],[]]
+
+        for i in range(len(self.wv_set)):
+            inwv,infl,iner = self.Mean_stack_galaxy(self.wv_set[i])
+            swv.append(inwv)
+            sfl.append(infl)
+            ser.append(iner)
+
+        print '%s stacks' % len(self.wv_set)
+        self.wv_ms = np.array(swv)
+        self.fl_ms = np.array(sfl)
+        self.er_ms = np.array(ser)
 
 
 """Spec normmean"""
