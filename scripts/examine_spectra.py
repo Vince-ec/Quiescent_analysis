@@ -14,59 +14,37 @@ sea.set(style='ticks')
 sea.set_style({"xtick.direction": "in","ytick.direction": "in"})
 colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=True)
 
-gal_set = Galaxy_set('s39170')
-# gal_set = Galaxy_set('n10338')
+galaxy = 's39170'
+# galaxy = 'n10338'
 
-gal_set.Display_spec()
-
-### initialize quality and pointing name arrays
-quality=np.repeat(True,len(ind_gal_img))
-Mask=np.zeros([len(ind_gal_img),2])
-p_names=[]
-
-### examine each spectra and assign quality
-for i in range(len(ind_gal_img)):
-    os.system("open " + ind_gal_img[i])
-    p_names.append(ind_gal_img[i][48:74])
-    wv,fl,err= Get_flux(spectra[i])
-    plt.plot(wv,fl)
-    plt.plot(wv,err)
-    plt.xlim(8000,11500)
-    plt.show()
-    quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
-    if quality[i] != 0:
-        minput = int(input('Mask region: (0 if no mask needed)'))
-        if minput != 0:
-            rinput= int(input('Lower bounds'))
-            linput= int(input('Upper bounds'))
-            Mask[i]=[rinput,linput]
+gal_set = Galaxy_set(galaxy)
+# gal_set.Display_spec()
 #
-# """Stack spectra and save quality file"""
+# """Save quality file"""
 # ### make data table and assign file name
-# qual_dat=Table([p_names,quality],names=['id','good_spec'])
-# fn='spec_stacks_nov29/%s%s_quality.txt' % (loc,galaxy)
+# qual_dat=Table([gal_set.pa_names,gal_set.quality],names=['id','good_spec'])
+#
+# if os.path.isdir('../../../../vestrada'):
+#     fn = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s/%s_quality.txt' % (galaxy,galaxy)
+# else:
+#     fn = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/%s_quality.txt' % (galaxy,galaxy)
 #
 # ### save quality file
-# ascii.write(qual_dat,fn)
-#
-# ### select good galaxies
-# new_speclist=[]
-# new_mask=[]
-# for i in range(len(quality)):
-#     if quality[i]==True:
-#         new_speclist.append(spectra[i])
-#         new_mask.append(Mask[i])
-#
-# ### get wavelength coverage
-# wvcover=[]
-# wvsum=[]
-# for i in range(len(new_speclist)):
-#     w,f,e=Get_flux(new_speclist[i])
-#     wvsum.append(sum(w))
-#     wvcover.append(w)
-#
-# IDX = np.argwhere(wvsum==np.max(wvsum))[0]
-#
+# ascii.write(qual_dat,fn,overwrite=True)
+
+"""Stack Galaxy"""
+###test
+gal_set.quality=[1,1,1,1,1]
+gal_set.Mask = [[0,0],[0,0],[0,0],[9000,9500],[0,0]]
+###test
+gal_set.Median_stack_galaxy()
+
+IDX = [U for U in range(len(gal_set.wv)) if 7500 < gal_set.wv[U] <11500]
+
+plt.plot(gal_set.wv[IDX],gal_set.fl[IDX])
+plt.plot(gal_set.wv[IDX],gal_set.er[IDX])
+plt.show()
+
 # ### get stack and compare to old stack
 # swv,sfl,ser=Stack_gal_spec(new_speclist,wvcover[IDX][:-1],new_mask)
 # swv2,sfl2,ser2=Get_flux(s[-1])

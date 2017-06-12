@@ -3046,15 +3046,17 @@ class Galaxy(object):
         plt.close()
 
 
-
 class Galaxy_set(object):
 
     def __init__(self,galaxy_id):
         self.galaxy_id = galaxy_id
+        if os.path.isdir('../../../../vestrada'):
+            gal_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id
+        else:
+            gal_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id
 
-        # gal_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id
         # test
-        gal_dir = '/Users/Vince.ec/Clear_data/test_data/%s/' % self.galaxy_id
+        # gal_dir = '/Users/Vince.ec/Clear_data/test_data/%s/' % self.galaxy_id
         one_d = glob(gal_dir + '*1D.fits')
         self.two_d = glob(gal_dir + '*png')
         one_d_l = [len(U) for U in one_d]
@@ -3090,26 +3092,20 @@ class Galaxy_set(object):
 
 
     def Display_spec(self):
+        if os.path.isdir('../../../../vestrada'):
+            n_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
+        else:
+            n_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
+
         if len(self.two_d) > 0:
-            os.system("open " + self.two_d)
+            os.system("open " + self.two_d[0])
 
-        self.quality = np.repeat(1, len(self.one_d_list))
+        self.quality = np.repeat(1, len(self.one_d_list)).astype(int)
         self.Mask = np.zeros([len(self.one_d_list), 2])
-        p_names = []
-
-        ### examine each spectra and assign quality
-        for i in range(len(ind_gal_img)):
-            p_names.append(ind_gal_img[i][48:74])
-
-            quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
-            if quality[i] != 0:
-                minput = int(input('Mask region: (0 if no mask needed)'))
-                if minput != 0:
-                    rinput = int(input('Lower bounds'))
-                    linput = int(input('Upper bounds'))
-                    Mask[i] = [rinput, linput]
+        self.pa_names = []
 
         for i in range(len(self.one_d_list)):
+            self.pa_names.append(self.one_d_list[i].replace(n_dir,''))
             wv, fl, er = Get_flux(self.one_d_list[i])
             IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
             plt.figure(figsize=[10,5])
@@ -3117,62 +3113,64 @@ class Galaxy_set(object):
             plt.plot(wv[IDX],er[IDX])
             plt.ylim(min(fl[IDX]),max(fl[IDX]))
             plt.xlim(7800,11500)
-            # plt.title(self.one_d_list[i].replace(
-            #     '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id,''))
-            plt.title(self.one_d_list[i].replace(
-                '/Users/Vince.ec/Clear_data/test_data/%s/' % self.galaxy_id,''))
+            plt.title(self.pa_names[i])
             plt.show()
-
-
-
-
-    def Quality_check(self):
-        self.quality = np.ones(len(self.one_d_list))
-        self.Mask = np.zeros([len(self.one_d_list), 2])
-        p_names = []
-
-        ### examine each spectra and assign quality
-        for i in range(len(self.one_d_list)):
-            p_names.append(self.one_d_list[i][48:74])
             self.quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
-            if self.quality[i] != 0:
+            if self.quality[i] == 1:
                 minput = int(input('Mask region: (0 if no mask needed)'))
                 if minput != 0:
                     rinput = int(input('Lower bounds'))
                     linput = int(input('Upper bounds'))
                     self.Mask[i] = [rinput, linput]
 
+
     def Get_wv_list(self):
         W = []
-        minw = np.zeros(len(self.one_d_list))
-        maxw = np.zeros(len(self.one_d_list))
+        lW=[]
+
         for i in range(len(self.one_d_list)):
-            wv, fl, er = Get_flux(self.one_d_list[i])
-            minw[i] = wv[0]
-            maxw[i] = wv[-1]
+            wv, fl, er = self.Get_flux(self.one_d_list[i])
             W.append(wv)
+            lW.append(len(wv))
 
         W = np.array(W)
-
-        # min_all = np.argwhere(W[i] >= max(minw))
-        # max_all = np.argwhere(W[i] <= min(maxw))
-        # W[i] = W[i][min_all[0][0]:max_all[-1][0]]
-        #
-        # self.wv_set = red_W
+        self.wv = W[np.argmax(lW)]
 
 
-    def Mean_stack_galaxy(self,wv):
+    def Mean_stack_galaxy(self):
+
+        ### select good galaxies
+        new_speclist=[]
+        new_mask=[]
+        for i in range(len(self.quality)):
+            if self.quality[i]==1:
+                new_speclist.append(self.one_d_list[i])
+                new_mask.append(self.Mask[i])
+
+        self.Get_wv_list()
+        self.good_specs = new_speclist
+        self.good_Mask = new_mask
+
         # Define grids used for stacking
-        flgrid = np.zeros([len(self.one_d_list), len(wv)])
-        errgrid = np.zeros([len(self.one_d_list), len(wv)])
+        flgrid = np.zeros([len(self.good_specs), len(self.wv)])
+        errgrid = np.zeros([len(self.good_specs), len(self.wv)])
 
         # Get wv,fl,er for each spectra
         for i in range(len(self.one_d_list)):
-            wave, flux, error = self.Get_flux(self.one_d_list[i])
-            ifl = interp1d(wave, flux)
-            ier = interp1d(wave, error)
-            flgrid[i] = ifl(wv)
-            errgrid[i] = ier(wv)
+            wave, flux, error = self.Get_flux(self.good_specs[i])
+            mask = np.array([wave[0] < U < wave[-1] for U in self.wv])
+            ifl = interp1d(wave, flux)(self.wv[mask])
+            ier = interp1d(wave, error)(self.wv[mask])
+
+            if sum(self.good_Mask[i]) > 0:
+                for ii in range(len(self.wv[mask])):
+                    if self.good_Mask[i][0] < self.wv[mask][ii] < self.good_Mask[i][1]:
+                        ifl[ii] = 0
+                        ier[ii] = 0
+
+            flgrid[i][mask] = ifl
+            errgrid[i][mask] = ier
+
         ################
 
         flgrid = np.transpose(flgrid)
@@ -3182,30 +3180,76 @@ class Galaxy_set(object):
         weigrid[infmask] = 0
         ################
 
-        stack, err = np.zeros([2, len(wv)])
-        for i in range(len(wv)):
-            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
+        stack, err = np.zeros([2, len(self.wv)])
+        for i in range(len(self.wv)):
+            fl_filter = np.ones(len(flgrid[i]))
+            for ii in range(len(flgrid[i])):
+                if flgrid[i][ii] == 0:
+                    fl_filter[ii] = 0
+            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / (np.sum(weigrid[i]*(fl_filter)))
             err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
         ################
 
-        return np.array(wv), np.array(stack), np.array(err)
+        self.fl = np.array(stack)
+        self.er = np.array(err)
 
 
-    def Stack_galaxy(self):
+    def Median_stack_galaxy(self):
+
+        ### select good galaxies
+        new_speclist=[]
+        new_mask=[]
+        for i in range(len(self.quality)):
+            if self.quality[i]==1:
+                new_speclist.append(self.one_d_list[i])
+                new_mask.append(self.Mask[i])
+
         self.Get_wv_list()
+        self.good_specs = new_speclist
+        self.good_Mask = new_mask
 
-        swv,sfl,ser=[[],[],[]]
+        # Define grids used for stacking
+        flgrid = np.zeros([len(self.good_specs), len(self.wv)])
+        errgrid = np.zeros([len(self.good_specs), len(self.wv)])
 
-        for i in range(len(self.wv_set)):
-            inwv,infl,iner = self.Mean_stack_galaxy(self.wv_set[i])
-            swv.append(inwv)
-            sfl.append(infl)
-            ser.append(iner)
+        # Get wv,fl,er for each spectra
+        for i in range(len(self.one_d_list)):
+            wave, flux, error = self.Get_flux(self.good_specs[i])
+            mask = np.array([wave[0] < U < wave[-1] for U in self.wv])
+            ifl = interp1d(wave, flux)(self.wv[mask])
+            ier = interp1d(wave, error)(self.wv[mask])
 
-        print '%s stacks' % len(self.wv_set)
-        self.wv_ms = np.array(swv)
-        self.fl_ms = np.array(sfl)
-        self.er_ms = np.array(ser)
+            if sum(self.good_Mask[i]) > 0:
+                for ii in range(len(self.wv[mask])):
+                    if self.good_Mask[i][0] < self.wv[mask][ii] < self.good_Mask[i][1]:
+                        ifl[ii] = 0
+                        ier[ii] = 0
+
+            flgrid[i][mask] = ifl
+            errgrid[i][mask] = ier
+
+        ################
+
+        flgrid = np.transpose(flgrid)
+        errgrid = np.transpose(errgrid)
+        weigrid = errgrid ** (-2)
+        infmask = np.isinf(weigrid)
+        weigrid[infmask] = 0
+        ################
+
+        stack, err = np.zeros([2, len(self.wv)])
+        for i in range(len(self.wv)):
+            fl_filter = np.ones(len(flgrid[i]))
+            for ii in range(len(flgrid[i])):
+                if flgrid[i][ii] == 0:
+                    fl_filter[ii] = 0
+            stack[i] = np.median(flgrid[i][flgrid[i] > 0])
+            err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
+        ################
+
+        self.fl = np.array(stack)
+        self.er = np.array(err)
+
 
 
 """Spec normmean"""
