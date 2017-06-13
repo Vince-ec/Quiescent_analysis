@@ -14,7 +14,7 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgalDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gids'])
 
-galaxy = all_g_gals[0]
+galaxy = all_g_gals[1000000]
 
 gal_set = Galaxy_set(galaxy)
 gal_set.Display_spec()
