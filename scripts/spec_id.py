@@ -3084,9 +3084,9 @@ class Galaxy_set(object):
         f = f[INDEX]
         e = e[INDEX]
 
-        # for i in range(len(f)):
-        #     if f[i] < 0:
-        #         f[i] = 0
+        for i in range(len(f)):
+            if f[i] < 0:
+                f[i] = 0
 
         return w, f, e
 
@@ -3098,23 +3098,48 @@ class Galaxy_set(object):
             n_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
 
         if len(self.two_d) > 0:
-            os.system("open " + self.two_d[0])
-
+            for i in range(len(self.two_d)):
+                os.system("open " + self.two_d[i])
 
         if len(self.one_d_list) > 0:
-            plt.figure(figsize=[15, 10])
-            for i in range(len(self.one_d_list)):
-                print self.one_d_list
-                print 11+i+len(self.one_d_list)*100
-                wv, fl, er = Get_flux(self.one_d_list[i])
-                IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-                plt.subplot(11+i+len(self.one_d_list)*100)
-                plt.plot(wv[IDX],fl[IDX])
-                plt.plot(wv[IDX],er[IDX])
-                plt.ylim(min(fl[IDX]),max(fl[IDX]))
-                plt.xlim(7800,11500)
-            plt.show()
+            if len(self.one_d_list) < 10:
+                plt.figure(figsize=[15, 10])
+                for i in range(len(self.one_d_list)):
+                    wv, fl, er = Get_flux(self.one_d_list[i])
+                    IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+                    plt.subplot(11+i+len(self.one_d_list)*100)
+                    plt.plot(wv[IDX],fl[IDX])
+                    plt.plot(wv[IDX],er[IDX])
+                    plt.ylim(min(fl[IDX]),max(fl[IDX]))
+                    plt.xlim(7800,11500)
+                plt.show()
 
+            if len(self.one_d_list) > 10:
+
+                smlist1 = self.one_d_list[:9]
+                smlist2 = self.one_d_list[9:]
+
+                plt.figure(figsize=[15, 10])
+                for i in range(len(smlist1)):
+                    wv, fl, er = Get_flux(smlist1[i])
+                    IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+                    plt.subplot(11+i+len(smlist1)*100)
+                    plt.plot(wv[IDX],fl[IDX])
+                    plt.plot(wv[IDX],er[IDX])
+                    plt.ylim(min(fl[IDX]),max(fl[IDX]))
+                    plt.xlim(7800,11500)
+                plt.show()
+
+                plt.figure(figsize=[15, 10])
+                for i in range(len(smlist2)):
+                    wv, fl, er = Get_flux(smlist2[i])
+                    IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+                    plt.subplot(11+i+len(smlist2)*100)
+                    plt.plot(wv[IDX],fl[IDX])
+                    plt.plot(wv[IDX],er[IDX])
+                    plt.ylim(min(fl[IDX]),max(fl[IDX]))
+                    plt.xlim(7800,11500)
+                plt.show()
 
         self.quality = np.repeat(1, len(self.one_d_list)).astype(int)
         self.Mask = np.zeros([len(self.one_d_list), 2])
@@ -3172,7 +3197,7 @@ class Galaxy_set(object):
         errgrid = np.zeros([len(self.good_specs), len(self.wv)])
 
         # Get wv,fl,er for each spectra
-        for i in range(len(self.one_d_list)):
+        for i in range(len(self.good_specs)):
             wave, flux, error = self.Get_flux(self.good_specs[i])
             mask = np.array([wave[0] < U < wave[-1] for U in self.wv])
             ifl = interp1d(wave, flux)(self.wv[mask])
@@ -3198,11 +3223,11 @@ class Galaxy_set(object):
 
         stack, err = np.zeros([2, len(self.wv)])
         for i in range(len(self.wv)):
-            fl_filter = np.ones(len(flgrid[i]))
-            for ii in range(len(flgrid[i])):
-                if flgrid[i][ii] == 0:
-                    fl_filter[ii] = 0
-            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / (np.sum(weigrid[i]*(fl_filter)))
+            # fl_filter = np.ones(len(flgrid[i]))
+            # for ii in range(len(flgrid[i])):
+            #     if flgrid[i][ii] == 0:
+            #         fl_filter[ii] = 0
+            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / (np.sum(weigrid[i]))
             err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
         ################
 

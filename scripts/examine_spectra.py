@@ -14,7 +14,7 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgalDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gids'])
 
-galaxy = all_g_gals[1000000]
+galaxy = all_g_gals[18]
 
 gal_set = Galaxy_set(galaxy)
 gal_set.Display_spec()
@@ -57,5 +57,3 @@ else:
 
 if gal_set.one_d_list.size > 0:
     np.save(n_dir + '/%s_stack' % (galaxy),[gal_set.wv,gal_set.fl,gal_set.er])
-else:
-    np.save(n_dir + '/%s_stack' % (galaxy), [gal_set.s_wv, gal_set.s_fl, gal_set.s_er])
