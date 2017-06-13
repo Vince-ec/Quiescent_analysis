@@ -3100,6 +3100,22 @@ class Galaxy_set(object):
         if len(self.two_d) > 0:
             os.system("open " + self.two_d[0])
 
+
+        if len(self.one_d_list) > 0:
+            plt.figure(figsize=[15, 10])
+            for i in range(len(self.one_d_list)):
+                print self.one_d_list
+                print 11+i+len(self.one_d_list)*100
+                wv, fl, er = Get_flux(self.one_d_list[i])
+                IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+                plt.subplot(11+i+len(self.one_d_list)*100)
+                plt.plot(wv[IDX],fl[IDX])
+                plt.plot(wv[IDX],er[IDX])
+                plt.ylim(min(fl[IDX]),max(fl[IDX]))
+                plt.xlim(7800,11500)
+            plt.show()
+
+
         self.quality = np.repeat(1, len(self.one_d_list)).astype(int)
         self.Mask = np.zeros([len(self.one_d_list), 2])
         self.pa_names = []
@@ -3108,7 +3124,7 @@ class Galaxy_set(object):
             self.pa_names.append(self.one_d_list[i].replace(n_dir,''))
             wv, fl, er = Get_flux(self.one_d_list[i])
             IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-            plt.figure(figsize=[10,5])
+            plt.figure(figsize=[15,5])
             plt.plot(wv[IDX],fl[IDX])
             plt.plot(wv[IDX],er[IDX])
             plt.ylim(min(fl[IDX]),max(fl[IDX]))
@@ -3251,6 +3267,11 @@ class Galaxy_set(object):
         self.er = np.array(err)
 
 
+    def Get_stack_info(self):
+        wv, fl, er = Get_flux(self.one_d_stack)
+        self.s_wv = wv
+        self.s_fl = fl
+        self.s_er = er
 
 """Spec normmean"""
 def Stack_spec_normwmean(spec, redshifts, wv):
