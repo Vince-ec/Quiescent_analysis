@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from vtl.Readfile import Readfile
 from glob import glob
+import shutil
 from astropy.io import fits, ascii
 from astropy.table import Table
 from scipy.interpolate import interp1d
@@ -20,6 +21,7 @@ all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gid
 
 for i in range(len(all_g_gals)):
     galaxy = all_g_gals[i]
-    gal_set = Galaxy_set(galaxy)
-    if len(gal_set.one_d_list) == 0:
-        print galaxy
+    n_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s' % galaxy
+    spec = glob(n_dir + '/*.npy')
+    if len(spec) > 0:
+        shutil.copyfile(spec[0],'/Users/Vince.ec/Github/Quiescent_analysis/spec_stacks_june14/%s_stack.npy' % galaxy)

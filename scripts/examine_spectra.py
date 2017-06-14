@@ -14,24 +14,13 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgalDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gids'])
 
-galaxy = all_g_gals[18]
-
+gal_num = 77
+print 'Current Index = %s' % gal_num
+galaxy = all_g_gals[gal_num]
 gal_set = Galaxy_set(galaxy)
-gal_set.Display_spec()
+gal_set.Display_spec(override_quality=True)
 
-"""Save quality file"""
-### make data table and assign file name
-qual_dat=Table([gal_set.pa_names,gal_set.quality],names=['id','good_spec'])
-
-if os.path.isdir('../../../../vestrada'):
-    fn = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s/%s_quality.txt' % (galaxy,galaxy)
-else:
-    fn = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s/%s_quality.txt' % (galaxy,galaxy)
-
-### save quality file
-ascii.write(qual_dat,fn,overwrite=True)
-
-"""Stack Galaxy"""
+# """Stack Galaxy"""
 gal_set.Get_stack_info()
 IDS = [U for U in range(len(gal_set.s_wv)) if 7900 < gal_set.s_wv[U] < 11300]
 
