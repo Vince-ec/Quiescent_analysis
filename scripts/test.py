@@ -12,4 +12,4 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 gsDB = qgDB[qgDB['spec'] == True]
 
-ge.FLT_search(gsDB['ra'][220],gsDB['dec'][220])
+print ge.FLT_search(gsDB['ra'][220],gsDB['dec'][220])

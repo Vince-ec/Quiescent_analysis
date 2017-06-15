@@ -20,9 +20,7 @@ def Source_present(fn, ra, dec):
 
     [pos] = w.wcs_world2pix([[ra, dec]], 1)
 
-    print pos
-
-    if -100 < pos[0] < xpixlim + 100 and -100 < pos[1] < ypixlim + 100 and flt[0].header['OBSTYPE'] == 'SPECTRA':
+    if -100 < pos[0] < xpixlim + 100 and -100 < pos[1] < ypixlim + 100 and flt[0].header['OBSTYPE'] == 'SPECTROSCOPIC':
         present = True
 
     return present, pos
@@ -30,10 +28,16 @@ def Source_present(fn, ra, dec):
 def FLT_search(ra, dec):
     fn=glob('../../../Clear_data/flt_files/i*flt.fits')
 
+    in_flts = []
+    flt_pos = []
+
     for i in range(len(fn)):
         pres,pos=Source_present(fn[i],ra,dec)
         if pres==True:
-            print fn[i],pos
+             in_flts.append(fn[i])
+             flt_pos.append(pos)
+
+    return in_flts,flt_pos
 
 
 
