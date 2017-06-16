@@ -12,7 +12,7 @@ from glob import glob
 def Source_present(fn, ra, dec):
     flt = fits.open(fn)
     w = wcs.WCS(flt[1].header)
-    hdr = w.to_header(relax=True)
+    # hdr = w.to_header(relax=True)
     present = False
 
     xpixlim = len(flt[1].data[0])
