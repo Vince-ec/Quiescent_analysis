@@ -3335,9 +3335,27 @@ class Galaxy_set(object):
         self.er = np.array(err)
 
 
-    def Median_stack_galaxy(self):
+    def Bootstrap(self,galaxy_list,repeats = 1000):
+        gal_index = np.arange(len(galaxy_list))
+
+
+
+
+    def Median_w_bootstrap_stack_galaxy(self):
+        if os.path.isdir('../../../../vestrada'):
+            n_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
+        else:
+            n_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
 
         ### select good galaxies
+        if os.path.isfile(n_dir + '/%s_quality.txt' % self.galaxy_id):
+            self.pa_names,self.quality,l_mask,h_mask=Readfile(n_dir + '/%s_quality.txt' % self.galaxy_id,is_float=False)
+            self.quality=self.quality.astype(float)
+            l_mask=l_mask.astype(float)
+            h_mask=h_mask.astype(float)
+            self.Mask = np.vstack([l_mask,h_mask]).T
+
+
         new_speclist=[]
         new_mask=[]
         for i in range(len(self.quality)):
@@ -3354,7 +3372,7 @@ class Galaxy_set(object):
         errgrid = np.zeros([len(self.good_specs), len(self.wv)])
 
         # Get wv,fl,er for each spectra
-        for i in range(len(self.one_d_list)):
+        for i in range(len(self.good_specs)):
             wave, flux, error = self.Get_flux(self.good_specs[i])
             mask = np.array([wave[0] < U < wave[-1] for U in self.wv])
             ifl = interp1d(wave, flux)(self.wv[mask])
@@ -3380,11 +3398,11 @@ class Galaxy_set(object):
 
         stack, err = np.zeros([2, len(self.wv)])
         for i in range(len(self.wv)):
-            fl_filter = np.ones(len(flgrid[i]))
-            for ii in range(len(flgrid[i])):
-                if flgrid[i][ii] == 0:
-                    fl_filter[ii] = 0
-            stack[i] = np.median(flgrid[i][flgrid[i] > 0])
+            # fl_filter = np.ones(len(flgrid[i]))
+            # for ii in range(len(flgrid[i])):
+            #     if flgrid[i][ii] == 0:
+            #         fl_filter[ii] = 0
+            stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / (np.sum(weigrid[i]))
             err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
         ################
 
