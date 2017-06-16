@@ -86,9 +86,9 @@ class Image_pull(object):
 
         sim_cat = sim_g102.blot_catalog(ref_cat, sextractor=False)
 
-        sim_g102.compute_full_model(ids=sim_cat['id'], mags=Mag(sim_cat['f_F125W']))
+        sim_g102.compute_full_model(ids=sim_cat['id'], mags=22)
 
         ## Get Cutout
         beam_g102 = grizli.model.BeamCutout(sim_g102, sim_g102.object_dispersers[self.galaxy_id]['A'])
 
-        self.cutout = beam_g102
+        self.cutout = beam_g102.beam.direct*(beam_g102.beam.seg == self.galaxy_id)

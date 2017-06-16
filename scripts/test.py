@@ -12,4 +12,11 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 gsDB = qgDB[qgDB['spec'] == True]
 
-print ge.FLT_search(gsDB['ra'][220],gsDB['dec'][220])
+hd_path='../../../../../Volumes/Vince_research/goods_4.4/'
+
+gal_img = ge.Image_pull(gsDB['flt_files'][220],hd_path + 'goodss_v4.4/goodss-F105W-astrodrizzle-v4.4_drz_sci.fits',
+              hd_path + 'goodss_v4.4/goodss-F105W-astrodrizzle-v4.4_drz_seg.fits',
+              '../../../Clear_data/goodss_mosaic/goodss_3dhst.v4.3.cat', gsDB['ids'][220])
+
+plt.imshow(gal_img.cutout)
+plt.show()

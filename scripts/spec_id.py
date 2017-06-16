@@ -3339,8 +3339,6 @@ class Galaxy_set(object):
         gal_index = np.arange(len(galaxy_list))
 
 
-
-
     def Median_w_bootstrap_stack_galaxy(self):
         if os.path.isdir('../../../../vestrada'):
             n_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
