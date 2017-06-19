@@ -39,7 +39,8 @@ def FLT_search(ra, dec):
 
     in_flts = np.array(in_flts)
     flt_pos = np.array(flt_pos)
-
+    print in_flts
+    print flt_pos
     centralized = flt_pos - [507, 507]
     dist_from_center = sum(centralized.T)
     best_flt = in_flts[np.argmin(np.abs(dist_from_center))]
