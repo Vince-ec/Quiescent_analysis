@@ -6,6 +6,7 @@ from astropy.cosmology import Planck13 as cosmo
 import sympy as sp
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import grizli
 import matplotlib.image as mpimg
 from astropy.io import fits
 from vtl.Readfile import Readfile
@@ -21,6 +22,7 @@ sea.set(style='white')
 sea.set(style='ticks')
 sea.set_style({"xtick.direction": "in", "ytick.direction": "in"})
 colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=True)
+
 
 def Oldest_galaxy(z):
     return cosmo.age(z).value
@@ -97,7 +99,7 @@ def Get_flux_nocont(FILE, z):
     if FILE == '../spec_stacks_jan24/s40597_stack.npy':
         IDW = []
         for ii in range(len(w)):
-            if 7950 <  w[ii] < 11000:
+            if 7950 < w[ii] < 11000:
                 IDW.append(ii)
 
     else:
@@ -163,13 +165,13 @@ def P(chisqr):
     return p1
 
 
-def Get_repeats(x,y):
-    z=[x,y]
-    tz=np.transpose(z)
-    size=np.zeros(len(tz))
+def Get_repeats(x, y):
+    z = [x, y]
+    tz = np.transpose(z)
+    size = np.zeros(len(tz))
     for i in range(len(size)):
-        size[i]=len(np.argwhere(tz==tz[i]))/2
-    size/=5
+        size[i] = len(np.argwhere(tz == tz[i])) / 2
+    size /= 5
     return size
 
 
@@ -217,12 +219,12 @@ def Likelihood_contours(age, metallicty, prob):
     pbin = pbin[::-1]
 
     ####### 2d integrate to find the 1 and 2 sigma values
-    prob_int=np.zeros(len(pbin))
+    prob_int = np.zeros(len(pbin))
 
     for i in range(len(pbin)):
         p = np.array(P2)
         p[p <= pbin[i]] = 0
-        prob_int[i]=np.trapz(np.trapz(p,m2,axis=1),age)
+        prob_int[i] = np.trapz(np.trapz(p, m2, axis=1), age)
 
     ######## Identify 1 and 2 sigma values
     onesig = np.abs(np.array(prob_int) - 0.68)
@@ -303,12 +305,12 @@ def Analyze_Stack(chifits, tau, metal, age):
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Analyze_Stack_avgage(chifits, tau, metal, age,age_conv='../data/tau_scale_ntau.dat'):
+def Analyze_Stack_avgage(chifits, tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
     ####### Read in file
     dat = fits.open(chifits)
-    chi = np.zeros([len(metal),len(age),len(tau)])
+    chi = np.zeros([len(metal), len(age), len(tau)])
     for i in range(len(metal)):
-        chi[i]=dat[i + 1].data
+        chi[i] = dat[i + 1].data
     chi = chi.T
 
     scale = Readfile(age_conv, 1)
@@ -319,26 +321,26 @@ def Analyze_Stack_avgage(chifits, tau, metal, age,age_conv='../data/tau_scale_nt
         for ii in range(len(age)):
             if age[ii] > scale[i][-1]:
                 amt.append(1)
-        overhead[i]=sum(amt)
+        overhead[i] = sum(amt)
 
     newchi = np.zeros(chi.shape)
     for i in range(len(chi)):
         if i == 0:
-            newchi[i]=chi[i]
+            newchi[i] = chi[i]
         else:
             iframe = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
-            newchi[i]=np.append(iframe, np.repeat([np.repeat(1E8, len(metal))], overhead[i], axis=0), axis=0)
+            newchi[i] = np.append(iframe, np.repeat([np.repeat(1E8, len(metal))], overhead[i], axis=0), axis=0)
 
     ####### Create normalize probablity marginalized over tau
     ultau = np.append(0, np.power(10, tau[1:] - 9))
-    prob = np.exp(-newchi.T.astype(np.float128)/2)
+    prob = np.exp(-newchi.T.astype(np.float128) / 2)
 
-    P=np.trapz(prob,ultau,axis=2)
-    C=np.trapz(np.trapz(P,age,axis=1),metal)
+    P = np.trapz(prob, ultau, axis=2)
+    C = np.trapz(np.trapz(P, age, axis=1), metal)
 
-    prob=P/C
+    prob = P / C
     ####### get best fit values
-    [idmax] = np.argwhere(prob==np.max(prob))
+    [idmax] = np.argwhere(prob == np.max(prob))
     print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
@@ -410,8 +412,8 @@ def Analyze_Stack_avgage_cont_feat(contfits, featfits, tau, metal, age, age_conv
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
 
-def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
-
+def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, metal, age,
+                                           age_conv='../data/tau_scale_ntau.dat'):
     Cprob = np.ones([len(metal), len(age), len(tau)])
     scale = Readfile(age_conv, 1)
     overhead = np.zeros(len(scale))
@@ -478,7 +480,9 @@ def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, meta
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
+
 """Stack Fit"""
+
 
 def Stack_spec(spec, redshifts, wv):
     flgrid = np.zeros([len(spec), len(wv)])
@@ -696,7 +700,7 @@ def Stack_sim_model(speclist, modellist, redshifts, wv_range):
 
         #######scale the model
         C = Scale_model(flux, error, iF)
-        mflux = C * iF + np.random.normal(0,error)
+        mflux = C * iF + np.random.normal(0, error)
 
         ######divide out continuum
         m2r = [3910, 3990, 4082, 4122, 4250, 4330, 4830, 4890, 4990, 5030]
@@ -752,7 +756,7 @@ def Stack_sim_model(speclist, modellist, redshifts, wv_range):
     return wv, stack, err
 
 
-def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10,fsps=True):
+def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10, fsps=True):
     ##############Stack spectra################
     wv, fl, err = Stack_spec(speclist, speczs, wv_range)
 
@@ -768,7 +772,6 @@ def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_na
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
-
 
         wgrid = []
         fgrid = []
@@ -795,16 +798,15 @@ def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_na
             fgrid.append(flux)
             egrid.append(error)
 
-
         pklspec = open(pklname, 'wb')
 
         for i in range(len(metal)):
             for ii in range(len(A)):
                 for iii in range(len(tau)):
                     if fsps == True:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs)
                     else:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs,fsps=False)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs, fsps=False)
                     mw, mf = Stack_model_in_mfit(mlist, speczs, wgrid, fgrid, egrid,
                                                  np.arange(wv[0], wv[-1] + res, res))
                     cPickle.dump(mf, pklspec, protocol=-1)
@@ -841,14 +843,14 @@ def Model_fit_stack(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_na
     return
 
 
-def Model_fit_stack_features(speclist, tau, metal, A, speczs,ids, wv_range, name, pkl_name, res=10, fsps=True):
+def Model_fit_stack_features(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10, fsps=True):
     ##############Stack spectra################
     wv, fl, er = Stack_spec(speclist, speczs, wv_range)
-    IDM=[]
+    IDM = []
     for i in range(len(wv)):
-        if 3800<=wv[i]<=3850 or 3910<=wv[i]<=4030 or 4080<=wv[i]<=4125 or 4250<=wv[i]<=4385 or 4515<=wv[i]<=4570 or 4810<=wv[i]<=4910 or 4975<=wv[i]<=5055 or 5110<=wv[i]<=5285:
+        if 3800 <= wv[i] <= 3850 or 3910 <= wv[i] <= 4030 or 4080 <= wv[i] <= 4125 or 4250 <= wv[i] <= 4385 or 4515 <= \
+                wv[i] <= 4570 or 4810 <= wv[i] <= 4910 or 4975 <= wv[i] <= 5055 or 5110 <= wv[i] <= 5285:
             IDM.append(i)
-
 
     #############Prep output file###############
 
@@ -862,7 +864,6 @@ def Model_fit_stack_features(speclist, tau, metal, A, speczs,ids, wv_range, name
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     if os.path.isfile(pklname) == False:
-
 
         wgrid = []
         fgrid = []
@@ -889,16 +890,15 @@ def Model_fit_stack_features(speclist, tau, metal, A, speczs,ids, wv_range, name
             fgrid.append(flux)
             egrid.append(error)
 
-
         pklspec = open(pklname, 'wb')
 
         for i in range(len(metal)):
             for ii in range(len(A)):
                 for iii in range(len(tau)):
                     if fsps == True:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs)
                     else:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs,fsps=False)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs, fsps=False)
                     mw, mf = Stack_model_in_mfit(mlist, speczs, wgrid, fgrid, egrid,
                                                  np.arange(wv[0], wv[-1] + res, res))
                     cPickle.dump(mf, pklspec, protocol=-1)
@@ -1065,7 +1065,6 @@ def Model_fit_stack_MCerr_bestfit(speclist, tau, metal, A, speczs, wv_range, nam
 
 def Model_fit_sim_stack_MCerr_bestfit(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
                                       wv_range, name, pkl_name, repeats=100):
-
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     ##############Start loop and add error#############
@@ -1076,20 +1075,20 @@ def Model_fit_sim_stack_MCerr_bestfit(speclist, tau, metal, A, sim_m, sim_a, sim
 
     outspec = open(pklname, 'rb')
 
-    mf=[]
+    mf = []
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
                 mf.append(np.array(cPickle.load(outspec)))
 
-    mf=np.array(mf)
+    mf = np.array(mf)
 
     outspec.close()
     scale = Readfile('../data/tau_scale_nage.dat', 1)
 
     for xx in range(repeats):
         ##############Stack spectra################
-        wv, fl, err = Stack_sim_model(speclist,rmlist,speczs,wv_range)
+        wv, fl, err = Stack_sim_model(speclist, rmlist, speczs, wv_range)
 
         ##############Create chigrid#################
         chigrid = np.sum(((fl - mf) / err) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128)
@@ -1144,11 +1143,13 @@ def Make_model_list(galaxy, Metal, Age, Tau, Rshift, fsps=True):
 
     if fsps == True:
         for i in range(len(Rshift)):
-            flist.append('../../../fsps_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy' % (Metal, Age, Tau, Rshift[i], galaxy[i]))
+            flist.append('../../../fsps_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy' % (
+            Metal, Age, Tau, Rshift[i], galaxy[i]))
 
     else:
         for i in range(len(Rshift)):
-            flist.append('../../../bc03_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy' % (Metal, Age, Tau, Rshift[i], galaxy[i]))
+            flist.append('../../../bc03_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy' % (
+            Metal, Age, Tau, Rshift[i], galaxy[i]))
 
     return flist
 
@@ -1266,7 +1267,9 @@ def Analyze_grism(chifits, tau, metal, age):
 
 
 """Cluster"""
-def Analyze_MCLH(chi,scale,overhead,metal,age,tau,ultau):
+
+
+def Analyze_MCLH(chi, scale, overhead, metal, age, tau, ultau):
     ######## Reshape likelihood to get average age instead of age when marginalized
 
     if len(tau) == 1:
@@ -1301,7 +1304,7 @@ def Analyze_MCLH(chi,scale,overhead,metal,age,tau,ultau):
     return prob / C
 
 
-def Analyze_MC_nc(chi,scale,overhead,metal,age,tau,ultau):
+def Analyze_MC_nc(chi, scale, overhead, metal, age, tau, ultau):
     ######## Reshape likelihood to get average age instead of age when marginalized
 
     if len(tau) == 1:
@@ -1339,10 +1342,10 @@ def Analyze_MC_nc(chi,scale,overhead,metal,age,tau,ultau):
 
     Mm = Get_mean(MP, metal)
     Am = Get_mean(AP, age)
-    return Mm,Am
+    return Mm, Am
 
 
-def Analyze_MC(Cchi,Fchi,scale,overhead,metal,age,tau,ultau):
+def Analyze_MC(Cchi, Fchi, scale, overhead, metal, age, tau, ultau):
     ######## Reshape likelihood to get average age instead of age when marginalized
 
     if len(tau) == 1:
@@ -1381,8 +1384,8 @@ def Analyze_MC(Cchi,Fchi,scale,overhead,metal,age,tau,ultau):
         TPC = np.trapz(probC, ultau, axis=2)
         TPF = np.trapz(probF, ultau, axis=2)
 
-    Cf = np.trapz(np.trapz(TPF,age,axis=1), metal)
-    Cc = np.trapz(np.trapz(TPC,age,axis=1), metal)
+    Cf = np.trapz(np.trapz(TPF, age, axis=1), metal)
+    Cc = np.trapz(np.trapz(TPC, age, axis=1), metal)
 
     prob = (probF / Cf) * (probC / Cc)
 
@@ -1400,10 +1403,10 @@ def Analyze_MC(Cchi,Fchi,scale,overhead,metal,age,tau,ultau):
 
     Mm = Get_mean(MP, metal)
     Am = Get_mean(AP, age)
-    return Mm,Am
+    return Mm, Am
 
 
-def Combine_LH(Pc,Pf,metal,age,tau,ultau):
+def Combine_LH(Pc, Pf, metal, age, tau, ultau):
     prob = Pf * Pc
 
     if len(tau) == 1:
@@ -1414,11 +1417,10 @@ def Combine_LH(Pc,Pf,metal,age,tau,ultau):
     AP = np.trapz(TP.T, metal)
     C = np.trapz(AP, age)
 
-
     return prob / C
 
 
-def Marginalize_and_norm(P,metal,age,tau,ultau):
+def Marginalize_and_norm(P, metal, age, tau, ultau):
     if len(tau) == 1:
         TP = P
     else:
@@ -1427,13 +1429,12 @@ def Marginalize_and_norm(P,metal,age,tau,ultau):
     AP = np.trapz(TP.T, metal)
     C = np.trapz(AP, age)
 
-
     return TP / C
 
 
-def Get_mean(dist,x):
-    ix = np.linspace(x[0],x[-1],250)
-    idist = interp1d(x,dist)(ix)
+def Get_mean(dist, x):
+    ix = np.linspace(x[0], x[-1], 250)
+    idist = interp1d(x, dist)(ix)
 
     m = 0
     for i in range(len(ix)):
@@ -1542,7 +1543,7 @@ def Divide_cont_gal(wave, flux, error, z):
     return w[IDr], flx[IDr], err[IDr]
 
 
-def Divide_cont_model(wave,flux, z):
+def Divide_cont_model(wave, flux, z):
     IDx = [U for U in range(len(wave)) if 7500 < wave[U] < 11500]
 
     wv = wave[IDx]
@@ -1590,18 +1591,17 @@ def Divide_cont_model(wave,flux, z):
 
 def Cluster_fit(spec, metal, age, tau, rshift, name):
     #############Define cluster#################
-    cluster = Cluster(spec,rshift)
+    cluster = Cluster(spec, rshift)
     cluster.Remove_continuum()
 
     #############Prep output files: 1-full, 2-cont, 3-feat###############
-    chifile1='../chidat/%s_chidata.fits' % name
+    chifile1 = '../chidat/%s_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-
     ##############Create chigrid and add to file#################
-    chigrid1=np.zeros([len(metal),len(age),len(tau)])
+    chigrid1 = np.zeros([len(metal), len(age), len(tau)])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
@@ -1614,7 +1614,6 @@ def Cluster_fit(spec, metal, age, tau, rshift, name):
         mchi1 = fits.ImageHDU(data=inputgrid1, name=spc1)
         hdulist1.append(mchi1)
 
-
     ################Write chigrid file###############
     hdulist1.writeto(chifile1)
 
@@ -1624,7 +1623,7 @@ def Cluster_fit(spec, metal, age, tau, rshift, name):
 
 def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, name):
     #############Define cluster#################
-    cluster = Cluster(spec,rshift)
+    cluster = Cluster(spec, rshift)
     cluster.Remove_continuum()
     sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.nc_wv * (1 + cluster.redshift),
                            cluster.nc_fl, cluster.nc_er)
@@ -1632,21 +1631,20 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
     sim_gc.Remove_continuum(use_sim=True)
     sim_gc.Remove_continuum()
 
-
     #############Prep output files: 1-full, 2-cont, 3-feat###############
-    chifile1='../chidat/%s_sim_nc_chidata.fits' % name
+    chifile1 = '../chidat/%s_sim_nc_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-    chifile2='../chidat/%s_sim_chidata.fits' % name
+    chifile2 = '../chidat/%s_sim_chidata.fits' % name
     prihdr2 = fits.Header()
     prihdu2 = fits.PrimaryHDU(header=prihdr2)
     hdulist2 = fits.HDUList(prihdu2)
 
     ##############Create chigrid and add to file#################
-    chigrid1=np.zeros([len(metal),len(age),len(tau)])
-    chigrid2=np.zeros([len(metal),len(age),len(tau)])
+    chigrid1 = np.zeros([len(metal), len(age), len(tau)])
+    chigrid2 = np.zeros([len(metal), len(age), len(tau)])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
@@ -1664,7 +1662,6 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
         mchi2 = fits.ImageHDU(data=inputgrid2, name=spc2)
         hdulist2.append(mchi2)
 
-
     ################Write chigrid file###############
     hdulist1.writeto(chifile1)
     hdulist2.writeto(chifile2)
@@ -1674,7 +1671,7 @@ def Cluster_fit_sim(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift, 
 
 
 def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
-                       name, use_galaxy = False , repeats = 1000,
+                       name, use_galaxy=False, repeats=1000,
                        age_conv='../data/tau_scale_cluster.dat'):
     #############Define cluster#################
     if use_galaxy == True:
@@ -1683,7 +1680,7 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
         sim_gc.Remove_continuum(use_sim=True)
     else:
 
-        cluster = Cluster(spec,rshift)
+        cluster = Cluster(spec, rshift)
         cluster.Remove_continuum()
         sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.wv, cluster.fl, cluster.er)
         sim_gc.Simulate()
@@ -1693,14 +1690,17 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
 
     IDF = []
     for i in range(len(drwv)):
-        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[i] <= 4385 or 4515 <= \
+        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[
+            i] <= 4385 or 4515 <= \
                 drwv[i] <= 4570 or 4810 <= drwv[i] <= 4910 or 4975 <= drwv[i] <= 5055 or 5110 <= drwv[i] <= 5285:
             IDF.append(i)
 
     IDC = []
     for i in range(len(drwv)):
-        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[i] <= 4250 or 4385 <= \
-                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
+        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[
+            i] <= 4250 or 4385 <= \
+                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[
+            i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
             IDC.append(i)
 
     IDT = np.arange(len(drwv))
@@ -1783,20 +1783,20 @@ def Cluster_fit_sim_MC(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshif
         NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
 
-        mlist[i], alist[i] = Analyze_MC(Ccchi,Cfchi,scale,overhead,metal,age,tau,ultau)
-        t_mlist[i], t_alist[i] =Analyze_MC_nc(Tchi,scale,overhead,metal,age,tau,ultau)
-        nc_mlist[i], nc_alist[i] =Analyze_MC_nc(NCchi,scale,overhead,metal,age,tau,ultau)
+        mlist[i], alist[i] = Analyze_MC(Ccchi, Cfchi, scale, overhead, metal, age, tau, ultau)
+        t_mlist[i], t_alist[i] = Analyze_MC_nc(Tchi, scale, overhead, metal, age, tau, ultau)
+        nc_mlist[i], nc_alist[i] = Analyze_MC_nc(NCchi, scale, overhead, metal, age, tau, ultau)
 
-    np.save('../mcerr/%s_mcerr' % name, [mlist,alist])
-    np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist,nc_alist])
-    np.save('../mcerr/%s_t_mcerr' % name, [t_mlist,t_alist])
+    np.save('../mcerr/%s_mcerr' % name, [mlist, alist])
+    np.save('../mcerr/%s_nc_mcerr' % name, [nc_mlist, nc_alist])
+    np.save('../mcerr/%s_t_mcerr' % name, [t_mlist, t_alist])
 
     print 'Done!'
 
 
 def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rshift,
-                       name, use_galaxy = False , repeats = 1000,
-                       age_conv='../data/tau_scale_cluster.dat'):
+                         name, use_galaxy=False, repeats=1000,
+                         age_conv='../data/tau_scale_cluster.dat'):
     #############Define cluster#################
     if use_galaxy == True:
         sim_gc = Galaxy_sim(sim_metal, sim_age, sim_tau, rshift)
@@ -1804,7 +1804,7 @@ def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rsh
         sim_gc.Remove_continuum(use_sim=True)
     else:
 
-        cluster = Cluster(spec,rshift)
+        cluster = Cluster(spec, rshift)
         cluster.Remove_continuum()
         sim_gc = Cluster_model(sim_metal, sim_age, sim_tau, rshift, cluster.wv, cluster.fl, cluster.er)
         sim_gc.Simulate()
@@ -1814,24 +1814,27 @@ def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rsh
 
     IDF = []
     for i in range(len(drwv)):
-        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[i] <= 4385 or 4515 <= \
+        if 3800 <= drwv[i] <= 3850 or 3910 <= drwv[i] <= 4030 or 4080 <= drwv[i] <= 4125 or 4250 <= drwv[
+            i] <= 4385 or 4515 <= \
                 drwv[i] <= 4570 or 4810 <= drwv[i] <= 4910 or 4975 <= drwv[i] <= 5055 or 5110 <= drwv[i] <= 5285:
             IDF.append(i)
 
     IDC = []
     for i in range(len(drwv)):
-        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[i] <= 4250 or 4385 <= \
-                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
+        if drwv[0] <= drwv[i] <= 3800 or 3850 <= drwv[i] <= 3910 or 4030 <= drwv[i] <= 4080 or 4125 <= drwv[
+            i] <= 4250 or 4385 <= \
+                drwv[i] <= 4515 or 4570 <= drwv[i] <= 4810 or 4910 <= drwv[i] <= 4975 or 5055 <= drwv[
+            i] <= 5110 or 5285 <= drwv[i] <= drwv[-1]:
             IDC.append(i)
 
     IDT = np.arange(len(drwv))
 
     #############Prep output files: continuum and no continuum###############
-    double_fit = np.ones([len(metal),len(age),len(tau)])
+    double_fit = np.ones([len(metal), len(age), len(tau)])
 
-    total_fl = np.ones([len(metal),len(age),len(tau)])
+    total_fl = np.ones([len(metal), len(age), len(tau)])
 
-    no_cont = np.ones([len(metal),len(age),len(tau)])
+    no_cont = np.ones([len(metal), len(age), len(tau)])
 
     #####Make model list
     fmf = []
@@ -1901,20 +1904,19 @@ def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rsh
         NCchi = np.sum(((sim_gc.nc_simfl - nc_model) / sim_gc.nc_simer) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau)]).astype(np.float128)
 
-        pc = Analyze_MCLH(Ccchi,scale,overhead,metal,age,tau,ultau)
-        pf = Analyze_MCLH(Cfchi,scale,overhead,metal,age,tau,ultau)
-        Pd = Combine_LH(pc,pf,metal,age,tau,ultau)
-        Pt = Analyze_MCLH(Tchi,scale,overhead,metal,age,tau,ultau)
-        Pnc = Analyze_MCLH(NCchi,scale,overhead,metal,age,tau,ultau)
+        pc = Analyze_MCLH(Ccchi, scale, overhead, metal, age, tau, ultau)
+        pf = Analyze_MCLH(Cfchi, scale, overhead, metal, age, tau, ultau)
+        Pd = Combine_LH(pc, pf, metal, age, tau, ultau)
+        Pt = Analyze_MCLH(Tchi, scale, overhead, metal, age, tau, ultau)
+        Pnc = Analyze_MCLH(NCchi, scale, overhead, metal, age, tau, ultau)
 
         double_fit = (double_fit * Pd).astype(np.float128)
         total_fl = (total_fl * Pt).astype(np.float128)
         no_cont = (no_cont * Pnc).astype(np.float128)
 
-    Pdf = Marginalize_and_norm(double_fit,metal,age,tau,ultau)
-    Ptf = Marginalize_and_norm(total_fl,metal,age,tau,ultau)
-    Pnc = Marginalize_and_norm(no_cont,metal,age,tau,ultau)
-
+    Pdf = Marginalize_and_norm(double_fit, metal, age, tau, ultau)
+    Ptf = Marginalize_and_norm(total_fl, metal, age, tau, ultau)
+    Pnc = Marginalize_and_norm(no_cont, metal, age, tau, ultau)
 
     np.save('../mcerr/%s_LH_mcerr' % name, Pdf)
     np.save('../mcerr/%s_nc_LH_mcerr' % name, Pnc)
@@ -1924,16 +1926,15 @@ def Cluster_fit_sim_MCLH(spec, sim_metal, sim_age, sim_tau, metal, age, tau, rsh
 
 
 class Cluster(object):
-
-    def __init__(self,cluster_spec,redshift):
+    def __init__(self, cluster_spec, redshift):
         wv, fl, er = np.load(cluster_spec)
-        IDf = [U for U in range(len(fl)) if 0 < fl[U] < 1E5]#np.median(fl)*10]
+        IDf = [U for U in range(len(fl)) if 0 < fl[U] < 1E5]  # np.median(fl)*10]
 
         self.wv = wv[IDf]
         self.fl = fl[IDf]
         self.er = er[IDf]
 
-        IDf = [U for U in range(len(self.fl)) if self.fl[U] < np.median(self.fl)*10]
+        IDf = [U for U in range(len(self.fl)) if self.fl[U] < np.median(self.fl) * 10]
 
         self.wv = self.wv[IDf]
         self.fl = self.fl[IDf]
@@ -1943,12 +1944,13 @@ class Cluster(object):
         self.redshift = redshift
 
     def Remove_continuum(self):
-        nc_wv, nc_fl, nc_er = Divide_cont(self.wv,self.fl,self.er,self.redshift)
+        nc_wv, nc_fl, nc_er = Divide_cont(self.wv, self.fl, self.er, self.redshift)
         self.nc_wv = nc_wv
         self.nc_fl = nc_fl
         self.nc_er = nc_er
 
-    def Analyze_fit(self, chigrid, metal, age, tau, cut_tau = False,tau_new=[] , age_conv='../data/tau_scale_cluster.dat'):
+    def Analyze_fit(self, chigrid, metal, age, tau, cut_tau=False, tau_new=[],
+                    age_conv='../data/tau_scale_cluster.dat'):
         self.metal = metal
         self.age = age
         if cut_tau == False:
@@ -1971,21 +1973,22 @@ class Cluster(object):
         self.chi = chi
 
         ####### Get scaling factor for tau reshaping
-        convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
-                   9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
-        convage = np.arange(.5,14.1,.1)
+        convtau = np.array(
+            [0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23,
+             9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+        convage = np.arange(.5, 14.1, .1)
 
         mt = [U for U in range(len(convtau)) if convtau[U] in self.tau]
-        ma = [U for U in range(len(convage)) if np.round(convage[U],1) in np.round(self.age,1)]
+        ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(self.age, 1)]
 
         if cut_tau == True:
-            self.chi = self.chi[:,:,mt[0]:mt[-1]+1]
+            self.chi = self.chi[:, :, mt[0]:mt[-1] + 1]
 
         if len(self.tau) == 1:
             self.chi = self.chi.reshape([len(self.metal), len(self.age)])
 
         convtable = Readfile(age_conv)
-        scale = convtable[mt[0]:mt[-1]+1,ma[0]:ma[-1]+1]
+        scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
 
         overhead = np.zeros(len(scale)).astype(int)
         for i in range(len(scale)):
@@ -2009,7 +2012,8 @@ class Cluster(object):
                 if len(frame) == len(metal):
                     newchi[i] = np.repeat([np.repeat(1E5, len(self.metal))], len(self.age), axis=0)
                 else:
-                    newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(self.metal))], overhead[i], axis=0), axis=0)
+                    newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(self.metal))], overhead[i], axis=0),
+                                          axis=0)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)
@@ -2027,8 +2031,8 @@ class Cluster(object):
         C = np.trapz(AP, self.age)
 
         self.prob = TP.T / C
-        self.AP = AP/C
-        self.MP = MP/C
+        self.AP = AP / C
+        self.MP = MP / C
 
         # ####### get best fit values
         print np.argwhere(self.prob == np.max(self.prob))
@@ -2042,14 +2046,14 @@ class Cluster(object):
     def Get_contours(self):
         onesig, twosig = Likelihood_contours(self.age, self.metal, self.prob)
 
-        self.contour = np.array([twosig,onesig])
+        self.contour = np.array([twosig, onesig])
 
-    def Plot_2D_likelihood(self,save_plot=False,plot_name=''):
+    def Plot_2D_likelihood(self, save_plot=False, plot_name=''):
         M, A = np.meshgrid(self.metal, self.age)
 
         self.Get_contours()
 
-        gs = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 4],wspace=0.0, hspace=0.0)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 4], wspace=0.0, hspace=0.0)
 
         plt.figure(figsize=[8, 8])
         plt.subplot(gs[1, 0])
@@ -2068,7 +2072,7 @@ class Cluster(object):
 
         plt.subplot(gs[1, 1])
         plt.plot(self.AP, self.age)
-        plt.ylim(min(self.age),max(self.age))
+        plt.ylim(min(self.age), max(self.age))
         plt.yticks([])
         plt.xticks([])
 
@@ -2086,8 +2090,8 @@ class Cluster(object):
 
     def Best_fit_spec(self):
 
-        mspec = Cluster_model(self.bfmetal,self.bfage, 0, self.redshift ,
-                              self.nc_wv*(1 + self.redshift),self.nc_fl,self.nc_er)
+        mspec = Cluster_model(self.bfmetal, self.bfage, 0, self.redshift,
+                              self.nc_wv * (1 + self.redshift), self.nc_fl, self.nc_er)
         mspec.Remove_continuum()
 
         self.mwv = mspec.wv
@@ -2107,16 +2111,15 @@ class Cluster_model(object):
                            (self.metal, self.age, self.tau, self.redshift))
         self.mwv = mwv
         self.mfl = mfl
-        imfl = interp1d(self.mwv,self.mfl)(cluster_wv)
-        C=Scale_model(cluster_fl, cluster_er, imfl)
-        self.fl = imfl*C
-        self.wv=cluster_wv
+        imfl = interp1d(self.mwv, self.mfl)(cluster_wv)
+        C = Scale_model(cluster_fl, cluster_er, imfl)
+        self.fl = imfl * C
+        self.wv = cluster_wv
         self.cluster_er = cluster_er
-
 
     def Simulate(self):
         IDx = [U for U in range(len(self.wv)) if self.wv[U] < 11100]
-        flxer = self.fl + np.random.normal(0,self.cluster_er)
+        flxer = self.fl + np.random.normal(0, self.cluster_er)
 
         self.simwv = self.wv[IDx]
         self.simfl = flxer[IDx]
@@ -2126,23 +2129,21 @@ class Cluster_model(object):
         self.simfl_fwl = flxer
         self.simer_fwl = self.cluster_er
 
-
-    def Remove_continuum(self,use_sim = False):
+    def Remove_continuum(self, use_sim=False):
         if use_sim == True:
             nc_wv, nc_fl, nc_er = Divide_cont(self.simwv_fwl, self.simfl_fwl, self.simer_fwl, self.redshift)
             self.nc_simwv = nc_wv
             self.nc_simfl = nc_fl
             self.nc_simer = nc_er
         else:
-            nc_wv, nc_fl = Divide_cont_model( self.wv, self.fl, self.redshift)
+            nc_wv, nc_fl = Divide_cont_model(self.wv, self.fl, self.redshift)
             self.nc_wv = nc_wv
             self.nc_fl = nc_fl
 
 
 class Galaxy_sim(object):
-
     def __init__(self, metal, age, tau, redshift):
-        wv,fl,er = np.load('../spec_stacks_jan24/s39170_stack.npy')
+        wv, fl, er = np.load('../spec_stacks_jan24/s39170_stack.npy')
         self.wv = wv[wv < 11100]
         self.fl = fl[wv < 11100]
         self.er = er[wv < 11100]
@@ -2156,37 +2157,39 @@ class Galaxy_sim(object):
         mwv, mfl = np.load('../../../fsps_models_for_fit/cluster_models/m%s_a%s_t%s_z%s_clust_model.npy' %
                            (self.metal, self.age, self.tau, self.redshift))
         imfl = interp1d(mwv, mfl)(self.wv)
-        C=Scale_model(self.fl, self.er, imfl)
+        C = Scale_model(self.fl, self.er, imfl)
         imfl_fwl = interp1d(mwv, mfl)(self.wv_fwl)
-        C_fwl=Scale_model(self.fl_fwl, self.er_fwl, imfl_fwl)
-        self.mfl = imfl*C
-        self.mfl_fwl = imfl_fwl*C_fwl
+        C_fwl = Scale_model(self.fl_fwl, self.er_fwl, imfl_fwl)
+        self.mfl = imfl * C
+        self.mfl_fwl = imfl_fwl * C_fwl
 
     def Simulate(self):
 
-        flxer = self.mfl_fwl + np.random.normal(0,self.er_fwl)
-        self.simwv_fwl=self.wv_fwl
-        self.simfl_fwl=flxer
-        self.simer_fwl=self.er_fwl
+        flxer = self.mfl_fwl + np.random.normal(0, self.er_fwl)
+        self.simwv_fwl = self.wv_fwl
+        self.simfl_fwl = flxer
+        self.simer_fwl = self.er_fwl
 
         self.simwv = self.wv
-        self.simfl = flxer[self.wv_fwl<11100]
+        self.simfl = flxer[self.wv_fwl < 11100]
         self.simer = self.er
 
-    def Remove_continuum(self,use_sim = False):
+    def Remove_continuum(self, use_sim=False):
         if use_sim == True:
             nc_wv, nc_fl, nc_er = Divide_cont_gal(self.simwv_fwl, self.simfl_fwl, self.simer_fwl, self.redshift)
             self.nc_simwv = nc_wv
             self.nc_simfl = nc_fl
             self.nc_simer = nc_er
         else:
-            nc_wv, nc_fl = Divide_cont_model( self.wv_fwl, self.mfl_fwl, self.redshift)
+            nc_wv, nc_fl = Divide_cont_model(self.wv_fwl, self.mfl_fwl, self.redshift)
             self.nc_wv = nc_wv
             self.nc_fl = nc_fl
 
 
 """Single Galaxy"""
-def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
+
+
+def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy, name, fsps=True):
     #############Read in spectra#################
     wv, fl, err = np.load(spec)
     wv, fl, err = np.array([wv[wv <= 11100], fl[wv <= 11100], err[wv <= 11100]])
@@ -2209,31 +2212,32 @@ def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     IDC = []
     for i in range(len(wv)):
         if wv[0] <= wv[i] <= 3800 or 3850 <= wv[i] <= 3910 or 4030 <= wv[i] <= 4080 or 4125 <= wv[i] <= 4250 or 4385 <= \
-                wv[i] <= 4515 or 4570 <= wv[i] <= 4810 or 4910 <= wv[i] <= 4975 or 5055 <= wv[i] <= 5110 or 5285 <= wv[i] <= wv[-1]:
+                wv[i] <= 4515 or 4570 <= wv[i] <= 4810 or 4910 <= wv[i] <= 4975 or 5055 <= wv[i] <= 5110 or 5285 <= wv[
+            i] <= wv[-1]:
             IDC.append(i)
 
     #############Prep output files: 1-full, 2-cont, 3-feat###############
-    chifile1='../chidat/%s_chidata.fits' % name
+    chifile1 = '../chidat/%s_chidata.fits' % name
     prihdr1 = fits.Header()
     prihdu1 = fits.PrimaryHDU(header=prihdr1)
     hdulist1 = fits.HDUList(prihdu1)
 
-    chifile2='../chidat/%s_cont_chidata.fits' % name
+    chifile2 = '../chidat/%s_cont_chidata.fits' % name
     prihdr2 = fits.Header()
     prihdu2 = fits.PrimaryHDU(header=prihdr2)
     hdulist2 = fits.HDUList(prihdu2)
 
-    chifile3='../chidat/%s_feat_chidata.fits' % name
+    chifile3 = '../chidat/%s_feat_chidata.fits' % name
     prihdr3 = fits.Header()
     prihdu3 = fits.PrimaryHDU(header=prihdr3)
     hdulist3 = fits.HDUList(prihdu3)
 
     ##############Create chigrid and add to file#################
-    chigrid1=np.zeros([len(metal),len(A),len(tau)])
-    chigrid2=np.zeros([len(metal),len(A),len(tau)])
-    chigrid3=np.zeros([len(metal),len(A),len(tau)])
+    chigrid1 = np.zeros([len(metal), len(A), len(tau)])
+    chigrid2 = np.zeros([len(metal), len(A), len(tau)])
+    chigrid3 = np.zeros([len(metal), len(A), len(tau)])
 
-    if fsps==False:
+    if fsps == False:
 
         filepath = '../../../bc03_models_for_fit/galaxy_models/'
 
@@ -2243,8 +2247,9 @@ def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
-                mwv,mf = np.load(filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
-                imf = interp1d(mwv/(1 + specz), mf)(wv)
+                mwv, mf = np.load(
+                    filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
+                imf = interp1d(mwv / (1 + specz), mf)(wv)
                 C = Scale_model(fl, err, imf)
                 chigrid1[i][ii][iii] = Identify_stack(fl, err, imf * C)
                 chigrid2[i][ii][iii] = Identify_stack(fl[IDC], err[IDC], imf[IDC] * C)
@@ -2273,21 +2278,21 @@ def Single_gal_fit_full(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     return
 
 
-def Single_gal_fit(spec, tau, metal, A, specz, galaxy,name, fsps=True):
+def Single_gal_fit(spec, tau, metal, A, specz, galaxy, name, fsps=True):
     #############Read in spectra#################
     wv, fl, err = np.load(spec)
     wv, fl, err = np.array([wv[7950 <= wv[wv <= 11000]], fl[7950 <= wv[wv <= 11000]], err[7950 <= wv[wv <= 11000]]])
 
     #############Prep output file###############
-    chifile='../chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
 
     ##############Create chigrid and add to file#################
-    chigrid=np.zeros([len(metal),len(A),len(tau)])
+    chigrid = np.zeros([len(metal), len(A), len(tau)])
 
-    if fsps==False:
+    if fsps == False:
 
         filepath = '../../../bc03_models_for_fit/galaxy_models/'
 
@@ -2297,7 +2302,8 @@ def Single_gal_fit(spec, tau, metal, A, specz, galaxy,name, fsps=True):
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
-                mwv,mf = np.load(filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
+                mwv, mf = np.load(
+                    filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
                 imf = interp1d(mwv, mf)(wv)
                 C = Scale_model(fl, err, imf)
                 chigrid[i][ii][iii] = Identify_stack(fl, err, imf * C)
@@ -2346,7 +2352,7 @@ def Single_gal_fit_feat(spec, tau, metal, A, specz, galaxy, name, fsps=True):
             for iii in range(len(tau)):
                 mwv, mf = np.load(
                     filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
-                imf = interp1d(mwv/(1 + specz), mf)(wv)
+                imf = interp1d(mwv / (1 + specz), mf)(wv)
                 C = Scale_model(fl, err, imf)
                 chigrid[i][ii][iii] = Identify_stack(fl[IDM], err[IDM], imf[IDM] * C)
         inputgrid = np.array(chigrid[i])
@@ -2368,7 +2374,7 @@ def Single_gal_fit_cont(spec, tau, metal, A, specz, galaxy, name, fsps=True):
 
     wv /= (1 + specz)
 
-    IDM=[]
+    IDM = []
     for i in range(len(wv)):
         if wv[0] <= wv[i] <= 3800 or 3850 <= wv[i] <= 3910 or 4030 <= wv[i] <= 4080 or 4125 <= wv[i] <= 4250 or 4385 <= \
                 wv[i] <= 4515 or 4570 <= wv[i] <= 4810 or 4910 <= wv[i] <= 4975 or 5055 <= wv[i] <= 5110:
@@ -2392,8 +2398,9 @@ def Single_gal_fit_cont(spec, tau, metal, A, specz, galaxy, name, fsps=True):
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
-                mwv, mf = np.load(filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
-                imf = interp1d(mwv/(1 + specz), mf)(wv)
+                mwv, mf = np.load(
+                    filepath + 'm%s_a%s_t%s_z%s_%s_model.npy' % (metal[i], A[ii], tau[iii], specz, galaxy))
+                imf = interp1d(mwv / (1 + specz), mf)(wv)
                 C = Scale_model(fl, err, imf)
                 chigrid[i][ii][iii] = Identify_stack(fl[IDM], err[IDM], imf[IDM] * C)
         inputgrid = np.array(chigrid[i])
@@ -2411,18 +2418,18 @@ def Single_gal_fit_cont(spec, tau, metal, A, specz, galaxy, name, fsps=True):
 def Specz_fit(galaxy, spec, rshift, name):
     #############Parameters#####################
     metal = np.array([0.0031, 0.0061, 0.0085, 0.012, 0.015, 0.019, 0.024])
-    A = [0.5,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5]
+    A = [0.5, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
 
     #############Read in spectra#################
-    wv,fl,err=np.array(Readfile(spec,1))
-    IDW=[]
+    wv, fl, err = np.array(Readfile(spec, 1))
+    IDW = []
     for i in range(len(wv)):
-        if 7950<wv[i]<11000:
+        if 7950 < wv[i] < 11000:
             IDW.append(i)
     wv, fl, err = np.array([wv[IDW], fl[IDW], err[IDW]])
 
     #############Prep output file###############
-    chifile='rshift_dat/%s_chidata.fits' % name
+    chifile = 'rshift_dat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -2435,28 +2442,28 @@ def Specz_fit(galaxy, spec, rshift, name):
         for ii in range(len(A)):
             a = []
             for iii in range(len(rshift)):
-                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii],galaxy))
+                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii], galaxy))
             m.append(a)
         modellist.append(m)
 
     ##############Create chigrid and add to file#################
-    chigrid=np.zeros([len(metal),len(A),len(rshift)])
+    chigrid = np.zeros([len(metal), len(A), len(rshift)])
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(rshift)):
-                mwv,mf= np.load(modellist[i][ii][iii])
-                imf=interp1d(mwv,mf)(wv)
-                C=Scale_model(fl,err,imf)
-                chigrid[i][ii][iii]=Identify_stack(fl,err,imf*C)
+                mwv, mf = np.load(modellist[i][ii][iii])
+                imf = interp1d(mwv, mf)(wv)
+                C = Scale_model(fl, err, imf)
+                chigrid[i][ii][iii] = Identify_stack(fl, err, imf * C)
         inputgrid = np.array(chigrid[i])
-        spc ='metal_%s' % metal[i]
+        spc = 'metal_%s' % metal[i]
         mchi = fits.ImageHDU(data=inputgrid, name=spc)
         hdulist.append(mchi)
     ################Write chigrid file###############
 
     hdulist.writeto(chifile)
 
-    Analyze_specz(chifile,rshift,name)
+    Analyze_specz(chifile, rshift, name)
 
     print 'Done!'
 
@@ -2466,18 +2473,18 @@ def Specz_fit(galaxy, spec, rshift, name):
 def Specz_fit_feat(galaxy, spec, rshift, name):
     #############Parameters#####################
     metal = np.array([0.0031, 0.0061, 0.0085, 0.012, 0.015, 0.019, 0.024])
-    A = [0.5,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0,5.5]
+    A = [0.5, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
 
     #############Read in spectra#################
-    wv,fl,err=np.array(Readfile(spec,1))
-    IDW=[]
+    wv, fl, err = np.array(Readfile(spec, 1))
+    IDW = []
     for i in range(len(wv)):
-        if 7950<wv[i]<11300:
+        if 7950 < wv[i] < 11300:
             IDW.append(i)
     wv, fl, err = np.array([wv[IDW], fl[IDW], err[IDW]])
 
     #############Prep output file###############
-    chifile='../rshift_dat/%s_chidata.fits' % name
+    chifile = '../rshift_dat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -2490,33 +2497,34 @@ def Specz_fit_feat(galaxy, spec, rshift, name):
         for ii in range(len(A)):
             a = []
             for iii in range(len(rshift)):
-                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii],galaxy))
+                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii], galaxy))
             m.append(a)
         modellist.append(m)
 
     ##############Create chigrid and add to file#################
-    chigrid=np.zeros([len(metal),len(A),len(rshift)])
+    chigrid = np.zeros([len(metal), len(A), len(rshift)])
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(rshift)):
-                mwv,mf= np.load(modellist[i][ii][iii])
-                ww=wv/(1+rshift[iii])
-                IDF=[]
+                mwv, mf = np.load(modellist[i][ii][iii])
+                ww = wv / (1 + rshift[iii])
+                IDF = []
                 for iv in range(len(ww)):
-                    if 3910 <= ww[iv] <= 3980 or 4082 <= ww[iv] <= 4122 or 4250 <= ww[iv] <=4400 or 4830 <= ww[iv] <=4930 or 5109 <= ww[iv] <=5250:
+                    if 3910 <= ww[iv] <= 3980 or 4082 <= ww[iv] <= 4122 or 4250 <= ww[iv] <= 4400 or 4830 <= ww[
+                        iv] <= 4930 or 5109 <= ww[iv] <= 5250:
                         IDF.append(iv)
-                imf=interp1d(mwv,mf)(wv[IDF])
-                C=Scale_model(fl[IDF],err[IDF],imf)
-                chigrid[i][ii][iii]=Identify_stack(fl[IDF],err[IDF],imf*C)
+                imf = interp1d(mwv, mf)(wv[IDF])
+                C = Scale_model(fl[IDF], err[IDF], imf)
+                chigrid[i][ii][iii] = Identify_stack(fl[IDF], err[IDF], imf * C)
         inputgrid = np.array(chigrid[i])
-        spc ='metal_%s' % metal[i]
+        spc = 'metal_%s' % metal[i]
         mchi = fits.ImageHDU(data=inputgrid, name=spc)
         hdulist.append(mchi)
     ################Write chigrid file###############
 
     hdulist.writeto(chifile)
 
-    Analyze_specz(chifile,rshift,name)
+    Analyze_specz(chifile, rshift, name)
 
     print 'Done!'
 
@@ -2572,7 +2580,7 @@ def Norm_P_specz(rshift, metal, age, chi):
     return np.array(P).astype(np.float128)
 
 
-def Analyze_specz(chifits, rshift,metal,age, name):
+def Analyze_specz(chifits, rshift, metal, age, name):
     ####### Read in file
     dat = fits.open(chifits)
     chi = []
@@ -2586,28 +2594,28 @@ def Analyze_specz(chifits, rshift,metal,age, name):
     ####### get best fit values
     print 'Best fit specz is %s' % rshift[np.argmax(prob)]
 
-    rshiftdat=Table([rshift,prob],names=['rshifts','Pz'])
-    ascii.write(rshiftdat,'../rshift_dat/%s_Pofz.dat' % name)
+    rshiftdat = Table([rshift, prob], names=['rshifts', 'Pz'])
+    ascii.write(rshiftdat, '../rshift_dat/%s_Pofz.dat' % name)
 
     return
 
 
-def Highest_likelihood_model_galaxy(galaxy,rshift, bfmetal, bfage, tau):
-    wv,fl,er=np.load('../spec_stacks_jan24/%s_stack.npy' % galaxy)
-    fp='../../../fsps_models_for_fit/galaxy_models/'
+def Highest_likelihood_model_galaxy(galaxy, rshift, bfmetal, bfage, tau):
+    wv, fl, er = np.load('../spec_stacks_jan24/%s_stack.npy' % galaxy)
+    fp = '../../../fsps_models_for_fit/galaxy_models/'
 
-    chi=[]
+    chi = []
     for i in range(len(tau)):
-        mwv,mfl=np.load(fp + 'm%s_a%s_t%s_z%s_%s_model.npy' % (bfmetal,bfage,tau[i],rshift,galaxy))
-        imfl=interp1d(mwv,mfl)(wv)
-        C=Scale_model(fl,er,imfl)
-        chi.append(Identify_stack(fl,er,C*imfl))
+        mwv, mfl = np.load(fp + 'm%s_a%s_t%s_z%s_%s_model.npy' % (bfmetal, bfage, tau[i], rshift, galaxy))
+        imfl = interp1d(mwv, mfl)(wv)
+        C = Scale_model(fl, er, imfl)
+        chi.append(Identify_stack(fl, er, C * imfl))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
 
 
-def Analyze_Stack_avgage_single_gal_combine(cont_chifits,feat_chifits, speclist, rshift, tau, metal, age,
-                                            stack_scale=True,age_conv='../data/tau_scale_ntau.dat'):
+def Analyze_Stack_avgage_single_gal_combine(cont_chifits, feat_chifits, speclist, rshift, tau, metal, age,
+                                            stack_scale=True, age_conv='../data/tau_scale_ntau.dat'):
     reg = np.arange(4000, 4210, 1)
     regint = np.zeros(len(speclist))
 
@@ -2695,21 +2703,21 @@ def Analyze_Stack_avgage_single_gal_combine(cont_chifits,feat_chifits, speclist,
 
 
 def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m, sim_a, sim_t, specz, gal_id,
-                                                name, f_weight=1, repeats=100,tau_scale='../data/tau_scale_ntau.dat'):
-
+                                                     name, f_weight=1, repeats=100,
+                                                     tau_scale='../data/tau_scale_ntau.dat'):
     mlist = []
     alist = []
 
     wv, flux, err = np.load(spec)
-    wv,flux,err=np.array([wv[wv<11100],flux[wv<11100],err[wv<11100]])
+    wv, flux, err = np.array([wv[wv < 11100], flux[wv < 11100], err[wv < 11100]])
     mwv, mfl = np.load('../../../fsps_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy'
-                       % (sim_m,sim_a,sim_t,specz,gal_id))
+                       % (sim_m, sim_a, sim_t, specz, gal_id))
 
     imfl = interp1d(mwv, mfl)(wv)
     C = Scale_model(flux, err, imfl)
 
-    FL=imfl*C
-    wv/=(1+specz)
+    FL = imfl * C
+    wv /= (1 + specz)
 
     ###############Get indicies
     IDf = []
@@ -2724,19 +2732,19 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
 
     ###############Get model list
 
-    fmf=[]
+    fmf = []
     cmf = []
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
-                W,MF = np.load('../../../fsps_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy'
-                       % (metal[i],A[ii],tau[iii],specz,gal_id))
-                iMF = interp1d(W/(1+specz), MF)(wv)
+                W, MF = np.load('../../../fsps_models_for_fit/galaxy_models/m%s_a%s_t%s_z%s_%s_model.npy'
+                                % (metal[i], A[ii], tau[iii], specz, gal_id))
+                iMF = interp1d(W / (1 + specz), MF)(wv)
                 Cm = Scale_model(FL, err, iMF)
-                fmf.append(Cm*iMF[IDf])
-                cmf.append(Cm*iMF[IDc])
+                fmf.append(Cm * iMF[IDf])
+                cmf.append(Cm * iMF[IDc])
 
-    fmf=np.array(fmf)
+    fmf = np.array(fmf)
     cmf = np.array(cmf)
 
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
@@ -2753,8 +2761,10 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
     for xx in range(repeats):
         fl = FL + np.random.normal(0, err)
 
-        Fchi = np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128).T
-        Cchi = np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128).T
+        Fchi = np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128).T
+        Cchi = np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128).T
 
         newCchi = np.zeros(Cchi.shape)
         newFchi = np.zeros(Fchi.shape)
@@ -2785,11 +2795,11 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
 
         Fprob = fprob / Cf
 
-        prob = Cprob*(Fprob**f_weight)
+        prob = Cprob * (Fprob ** f_weight)
 
         P0 = np.trapz(prob, ultau, axis=2).T
         C0 = np.trapz(np.trapz(P0, metal, axis=1), A)
-        prob = P0/C0
+        prob = P0 / C0
 
         idmax = np.argwhere(prob == np.max(prob))
 
@@ -2800,7 +2810,7 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
         if repeats <= len(alist):
             break
 
-    fn ='../mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -2810,7 +2820,7 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
 def Analyze_Stack_avgage_cont_feat_gal_age_correct(contfits, featfits, specz,
                                                    tau, metal, age, age_conv='../data/tau_scale_ntau.dat'):
     ####### Get maximum age
-    max_age=Oldest_galaxy(specz)
+    max_age = Oldest_galaxy(specz)
 
     ####### Read in file
     Cdat = fits.open(contfits)
@@ -2883,16 +2893,15 @@ def Analyze_Stack_avgage_cont_feat_gal_age_correct(contfits, featfits, specz,
 
 
 class Galaxy(object):
-
-    def __init__(self,galaxy_id):
+    def __init__(self, galaxy_id):
         self.galaxy_id = galaxy_id
-        wv,fl,er = np.load('../spec_stacks_jan24/%s_stack.npy' % self.galaxy_id)
+        wv, fl, er = np.load('../spec_stacks_jan24/%s_stack.npy' % self.galaxy_id)
         self.wv = wv[wv < 11100]
         self.fl = fl[wv < 11100]
         self.er = er[wv < 11100]
         self.contour = 0
 
-    def Get_best_fit(self,contfits,featfits,metal,age,tau,specz,age_conv='../data/tau_scale_ntau.dat'):
+    def Get_best_fit(self, contfits, featfits, metal, age, tau, specz, age_conv='../data/tau_scale_ntau.dat'):
         self.metal = metal
         self.age = age
         self.tau = tau
@@ -2973,8 +2982,8 @@ class Galaxy(object):
         AP = np.trapz(self.prob, self.metal)
         MP = np.trapz(self.prob.T, self.age)
         #
-        self.AP = AP/C0
-        self.MP = MP/C0
+        self.AP = AP / C0
+        self.MP = MP / C0
 
         self.bfage = age[idmax[1]]
         self.bfmetal = metal[idmax[0]]
@@ -2983,7 +2992,8 @@ class Galaxy(object):
 
         chi = []
         for i in range(len(tau)):
-            mwv, mfl = np.load(fp + 'm%s_a%s_t%s_z%s_%s_model.npy' % (self.bfmetal, self.bfage, tau[i], self.specz, self.galaxy_id))
+            mwv, mfl = np.load(
+                fp + 'm%s_a%s_t%s_z%s_%s_model.npy' % (self.bfmetal, self.bfage, tau[i], self.specz, self.galaxy_id))
             imfl = interp1d(mwv, mfl)(self.wv)
             C = Scale_model(self.fl, self.er, imfl)
             chi.append(Identify_stack(self.fl, self.er, C * imfl))
@@ -2997,20 +3007,18 @@ class Galaxy(object):
 
         self.mfl = C * imfl
 
-
     def Get_contours(self):
         onesig, twosig = Likelihood_contours(self.age, self.metal, self.prob)
 
-        self.contour = np.array([twosig,onesig])
+        self.contour = np.array([twosig, onesig])
 
-
-    def Plot_2D_likelihood(self,save_plot=False,plot_name=''):
+    def Plot_2D_likelihood(self, save_plot=False, plot_name=''):
         M, A = np.meshgrid(self.metal, self.age)
 
         if self.contour == 0:
             self.Get_contours()
 
-        gs = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 4],wspace=0.0, hspace=0.0)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 4], wspace=0.0, hspace=0.0)
 
         plt.figure(figsize=[8, 8])
         plt.subplot(gs[1, 0])
@@ -3029,7 +3037,7 @@ class Galaxy(object):
 
         plt.subplot(gs[1, 1])
         plt.plot(self.AP, self.age)
-        plt.ylim(min(self.age),max(self.age))
+        plt.ylim(min(self.age), max(self.age))
         plt.yticks([])
         plt.xticks([])
 
@@ -3047,8 +3055,7 @@ class Galaxy(object):
 
 
 class Galaxy_set(object):
-
-    def __init__(self,galaxy_id):
+    def __init__(self, galaxy_id):
         self.galaxy_id = galaxy_id
         if os.path.isdir('../../../../vestrada'):
             gal_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s/' % self.galaxy_id
@@ -3063,8 +3070,7 @@ class Galaxy_set(object):
         self.one_d_stack = one_d[np.argmin(one_d_l)]
         self.one_d_list = np.delete(one_d, [np.argmin(one_d_l)])
 
-
-    def Get_flux(self,FILE):
+    def Get_flux(self, FILE):
         observ = fits.open(FILE)
         w = np.array(observ[1].data.field('wave'))
         f = np.array(observ[1].data.field('flux')) * 1E-17
@@ -3090,8 +3096,7 @@ class Galaxy_set(object):
 
         return w, f, e
 
-
-    def Display_spec(self,override_quality=False):
+    def Display_spec(self, override_quality=False):
         if os.path.isdir('../../../../vestrada'):
             n_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
         else:
@@ -3110,11 +3115,11 @@ class Galaxy_set(object):
                         for i in range(len(self.one_d_list)):
                             wv, fl, er = Get_flux(self.one_d_list[i])
                             IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-                            plt.subplot(11+i+len(self.one_d_list)*100)
-                            plt.plot(wv[IDX],fl[IDX])
-                            plt.plot(wv[IDX],er[IDX])
-                            plt.ylim(min(fl[IDX]),max(fl[IDX]))
-                            plt.xlim(7800,11500)
+                            plt.subplot(11 + i + len(self.one_d_list) * 100)
+                            plt.plot(wv[IDX], fl[IDX])
+                            plt.plot(wv[IDX], er[IDX])
+                            plt.ylim(min(fl[IDX]), max(fl[IDX]))
+                            plt.xlim(7800, 11500)
                         plt.show()
 
                     if len(self.one_d_list) > 10:
@@ -3126,22 +3131,22 @@ class Galaxy_set(object):
                         for i in range(len(smlist1)):
                             wv, fl, er = Get_flux(smlist1[i])
                             IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-                            plt.subplot(11+i+len(smlist1)*100)
-                            plt.plot(wv[IDX],fl[IDX])
-                            plt.plot(wv[IDX],er[IDX])
-                            plt.ylim(min(fl[IDX]),max(fl[IDX]))
-                            plt.xlim(7800,11500)
+                            plt.subplot(11 + i + len(smlist1) * 100)
+                            plt.plot(wv[IDX], fl[IDX])
+                            plt.plot(wv[IDX], er[IDX])
+                            plt.ylim(min(fl[IDX]), max(fl[IDX]))
+                            plt.xlim(7800, 11500)
                         plt.show()
 
                         plt.figure(figsize=[15, 10])
                         for i in range(len(smlist2)):
                             wv, fl, er = Get_flux(smlist2[i])
                             IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-                            plt.subplot(11+i+len(smlist2)*100)
-                            plt.plot(wv[IDX],fl[IDX])
-                            plt.plot(wv[IDX],er[IDX])
-                            plt.ylim(min(fl[IDX]),max(fl[IDX]))
-                            plt.xlim(7800,11500)
+                            plt.subplot(11 + i + len(smlist2) * 100)
+                            plt.plot(wv[IDX], fl[IDX])
+                            plt.plot(wv[IDX], er[IDX])
+                            plt.ylim(min(fl[IDX]), max(fl[IDX]))
+                            plt.xlim(7800, 11500)
                         plt.show()
 
                 self.quality = np.repeat(1, len(self.one_d_list)).astype(int)
@@ -3149,14 +3154,14 @@ class Galaxy_set(object):
                 self.pa_names = []
 
                 for i in range(len(self.one_d_list)):
-                    self.pa_names.append(self.one_d_list[i].replace(n_dir,''))
+                    self.pa_names.append(self.one_d_list[i].replace(n_dir, ''))
                     wv, fl, er = Get_flux(self.one_d_list[i])
                     IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
-                    plt.figure(figsize=[15,5])
-                    plt.plot(wv[IDX],fl[IDX])
-                    plt.plot(wv[IDX],er[IDX])
-                    plt.ylim(min(fl[IDX]),max(fl[IDX]))
-                    plt.xlim(7800,11500)
+                    plt.figure(figsize=[15, 5])
+                    plt.plot(wv[IDX], fl[IDX])
+                    plt.plot(wv[IDX], er[IDX])
+                    plt.ylim(min(fl[IDX]), max(fl[IDX]))
+                    plt.xlim(7800, 11500)
                     plt.title(self.pa_names[i])
                     plt.show()
                     self.quality[i] = int(input('Is this spectra good: (1 yes) (0 no)'))
@@ -3248,14 +3253,13 @@ class Galaxy_set(object):
             h_mask = self.Mask.T[1]
 
             qual_dat = Table([self.pa_names, self.quality, l_mask, h_mask],
-                             names=['id', 'good_spec', 'mask_low','mask_high'])
+                             names=['id', 'good_spec', 'mask_low', 'mask_high'])
             fn = n_dir + '/%s_quality.txt' % self.galaxy_id
             ascii.write(qual_dat, fn, overwrite=True)
 
-
     def Get_wv_list(self):
         W = []
-        lW=[]
+        lW = []
 
         for i in range(len(self.one_d_list)):
             wv, fl, er = self.Get_flux(self.one_d_list[i])
@@ -3265,7 +3269,6 @@ class Galaxy_set(object):
         W = np.array(W)
         self.wv = W[np.argmax(lW)]
 
-
     def Mean_stack_galaxy(self):
         if os.path.isdir('../../../../vestrada'):
             n_dir = '../../../../../Volumes/Vince_research/Extractions/Quiescent_galaxies/%s' % self.galaxy_id
@@ -3274,17 +3277,17 @@ class Galaxy_set(object):
 
         ### select good galaxies
         if os.path.isfile(n_dir + '/%s_quality.txt' % self.galaxy_id):
-            self.pa_names,self.quality,l_mask,h_mask=Readfile(n_dir + '/%s_quality.txt' % self.galaxy_id,is_float=False)
-            self.quality=self.quality.astype(float)
-            l_mask=l_mask.astype(float)
-            h_mask=h_mask.astype(float)
-            self.Mask = np.vstack([l_mask,h_mask]).T
+            self.pa_names, self.quality, l_mask, h_mask = Readfile(n_dir + '/%s_quality.txt' % self.galaxy_id,
+                                                                   is_float=False)
+            self.quality = self.quality.astype(float)
+            l_mask = l_mask.astype(float)
+            h_mask = h_mask.astype(float)
+            self.Mask = np.vstack([l_mask, h_mask]).T
 
-
-        new_speclist=[]
-        new_mask=[]
+        new_speclist = []
+        new_mask = []
         for i in range(len(self.quality)):
-            if self.quality[i]==1:
+            if self.quality[i] == 1:
                 new_speclist.append(self.one_d_list[i])
                 new_mask.append(self.Mask[i])
 
@@ -3334,10 +3337,8 @@ class Galaxy_set(object):
         self.fl = np.array(stack)
         self.er = np.array(err)
 
-
-    def Bootstrap(self,galaxy_list,repeats = 1000):
+    def Bootstrap(self, galaxy_list, repeats=1000):
         gal_index = np.arange(len(galaxy_list))
-
 
     def Median_w_bootstrap_stack_galaxy(self):
         if os.path.isdir('../../../../vestrada'):
@@ -3347,17 +3348,17 @@ class Galaxy_set(object):
 
         ### select good galaxies
         if os.path.isfile(n_dir + '/%s_quality.txt' % self.galaxy_id):
-            self.pa_names,self.quality,l_mask,h_mask=Readfile(n_dir + '/%s_quality.txt' % self.galaxy_id,is_float=False)
-            self.quality=self.quality.astype(float)
-            l_mask=l_mask.astype(float)
-            h_mask=h_mask.astype(float)
-            self.Mask = np.vstack([l_mask,h_mask]).T
+            self.pa_names, self.quality, l_mask, h_mask = Readfile(n_dir + '/%s_quality.txt' % self.galaxy_id,
+                                                                   is_float=False)
+            self.quality = self.quality.astype(float)
+            l_mask = l_mask.astype(float)
+            h_mask = h_mask.astype(float)
+            self.Mask = np.vstack([l_mask, h_mask]).T
 
-
-        new_speclist=[]
-        new_mask=[]
+        new_speclist = []
+        new_mask = []
         for i in range(len(self.quality)):
-            if self.quality[i]==1:
+            if self.quality[i] == 1:
                 new_speclist.append(self.one_d_list[i])
                 new_mask.append(self.Mask[i])
 
@@ -3407,7 +3408,6 @@ class Galaxy_set(object):
         self.fl = np.array(stack)
         self.er = np.array(err)
 
-
     def Get_stack_info(self):
         wv, fl, er = Get_flux(self.one_d_stack)
         self.s_wv = wv
@@ -3416,6 +3416,8 @@ class Galaxy_set(object):
 
 
 """Spec normmean"""
+
+
 def Stack_spec_normwmean(spec, redshifts, wv):
     flgrid = np.zeros([len(spec), len(wv)])
     errgrid = np.zeros([len(spec), len(wv)])
@@ -3478,50 +3480,15 @@ def Stack_spec_normwmean(spec, redshifts, wv):
 
 
 def Stack_model_normwmean(speclist, modellist, redshifts, wv_range):
-    flgrid ,errgrid= [[],[]]
+    flgrid, errgrid = [[], []]
     reg = np.arange(4000, 4210, 1)
 
     for i in range(len(speclist)):
         #######read in spectra
         wave, flux, error = np.load(speclist[i])
-        wave, flux, error = np.array([wave[wave<=11100], flux[wave<=11100], error[wave<=11100]])
+        wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
 
         wave = wave / (1 + redshifts[i])
-
-        #######read in corresponding model, and interpolate flux
-        W, F,= np.load(modellist[i])
-        ifl = interp1d(W/ (1 + redshifts[i]), F)
-        ier = interp1d(wave, error)
-
-        #######scale the model
-        C = Scale_model(flux, error, ifl(wave))
-
-        ########interpolate spectra
-        flentry,errentry = np.zeros([2,len(wv_range)])
-        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
-        Cr = np.trapz(ifl(reg)*C, reg)
-        flentry[mask] = ifl(wv_range[mask]) * C / Cr
-        errentry[mask] = ier(wv_range[mask]) / Cr
-        flgrid.append(flentry)
-        errgrid.append(errentry)
-
-    weigrid = np.array(errgrid).T ** (-2)
-    infmask = np.isinf(weigrid)
-    weigrid[infmask] = 0
-    ################
-
-    stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid,axis=1)
-
-    return wv_range, stack
-
-
-def Stack_model_normwmean_in_mfit(modellist, redshifts, wave_grid, flux_grid, err_grid, wv_range):
-    flgrid ,errgrid= [[],[]]
-    reg = np.arange(4000, 4210, 1)
-
-    for i in range(len(modellist)):
-        #######read in spectra
-        wave, flux, error = np.array([wave_grid[i],flux_grid[i],err_grid[i]])
 
         #######read in corresponding model, and interpolate flux
         W, F, = np.load(modellist[i])
@@ -3545,7 +3512,42 @@ def Stack_model_normwmean_in_mfit(modellist, redshifts, wave_grid, flux_grid, er
     weigrid[infmask] = 0
     ################
 
-    stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid,axis=1)
+    stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid, axis=1)
+
+    return wv_range, stack
+
+
+def Stack_model_normwmean_in_mfit(modellist, redshifts, wave_grid, flux_grid, err_grid, wv_range):
+    flgrid, errgrid = [[], []]
+    reg = np.arange(4000, 4210, 1)
+
+    for i in range(len(modellist)):
+        #######read in spectra
+        wave, flux, error = np.array([wave_grid[i], flux_grid[i], err_grid[i]])
+
+        #######read in corresponding model, and interpolate flux
+        W, F, = np.load(modellist[i])
+        ifl = interp1d(W / (1 + redshifts[i]), F)
+        ier = interp1d(wave, error)
+
+        #######scale the model
+        C = Scale_model(flux, error, ifl(wave))
+
+        ########interpolate spectra
+        flentry, errentry = np.zeros([2, len(wv_range)])
+        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
+        Cr = np.trapz(ifl(reg) * C, reg)
+        flentry[mask] = ifl(wv_range[mask]) * C / Cr
+        errentry[mask] = ier(wv_range[mask]) / Cr
+        flgrid.append(flentry)
+        errgrid.append(errentry)
+
+    weigrid = np.array(errgrid).T ** (-2)
+    infmask = np.isinf(weigrid)
+    weigrid[infmask] = 0
+    ################
+
+    stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid, axis=1)
 
     return wv_range, stack
 
@@ -3574,13 +3576,13 @@ def Stack_sim_model_normwmean(speclist, modellist, redshifts, wv_range):
         wave = wave / (1 + redshifts[i])
 
         #######read in corresponding model, and interpolate flux
-        W, F,= np.load(modellist[i])
+        W, F, = np.load(modellist[i])
         W = W / (1 + redshifts[i])
         iF = interp1d(W, F)(wave)
 
         #######scale the model
         C = Scale_model(flux, error, iF)
-        F = C*iF + np.random.normal(0,error)
+        F = C * iF + np.random.normal(0, error)
         Er = error
 
         ########interpolate spectra
@@ -3614,20 +3616,20 @@ def Stack_sim_model_normwmean(speclist, modellist, redshifts, wv_range):
     return wv, stack, err
 
 
-def Model_fit_stack_normwmean_features(speclist, tau, metal, A, speczs,ids, wv_range, name, pkl_name, res=10,
+def Model_fit_stack_normwmean_features(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10,
                                        fluxerr=False, flxerr_list='', fsps=True):
     ##############Stack spectra################
     wv, fl, er = Stack_spec_normwmean(speclist, speczs, wv_range)
 
     if fluxerr == True:
-        inwv,inerr=Readfile(flxerr_list)
+        inwv, inerr = Readfile(flxerr_list)
         er == inerr
 
-    IDM=[]
+    IDM = []
     for i in range(len(wv)):
-        if 3800<=wv[i]<=3850 or 3910<=wv[i]<=4030 or 4080<=wv[i]<=4125 or 4250<=wv[i]<=4385 or 4515<=wv[i]<=4570 or 4810<=wv[i]<=4910 or 4975<=wv[i]<=5055 or 5110<=wv[i]<=5285:
+        if 3800 <= wv[i] <= 3850 or 3910 <= wv[i] <= 4030 or 4080 <= wv[i] <= 4125 or 4250 <= wv[i] <= 4385 or 4515 <= \
+                wv[i] <= 4570 or 4810 <= wv[i] <= 4910 or 4975 <= wv[i] <= 5055 or 5110 <= wv[i] <= 5285:
             IDM.append(i)
-
 
     #############Prep output file###############
 
@@ -3702,16 +3704,16 @@ def Model_fit_stack_normwmean_features(speclist, tau, metal, A, speczs,ids, wv_r
     return
 
 
-def Model_fit_stack_normwmean_cont(speclist, tau, metal, A, speczs,ids, wv_range, name, pkl_name, res=10,
-                                   fluxerr=False, flxerr_list='',    fsps=True):
+def Model_fit_stack_normwmean_cont(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10,
+                                   fluxerr=False, flxerr_list='', fsps=True):
     ##############Stack spectra################
     wv, fl, er = Stack_spec_normwmean(speclist, speczs, wv_range)
 
     if fluxerr == True:
-        inwv,inerr=Readfile(flxerr_list)
+        inwv, inerr = Readfile(flxerr_list)
         er == inerr
 
-    IDM=[]
+    IDM = []
     for i in range(len(wv)):
         if wv[0] <= wv[i] <= 3800 or 3850 <= wv[i] <= 3910 or 4030 <= wv[i] <= 4080 or 4125 <= wv[i] <= 4250 or 4385 <= \
                 wv[i] <= 4515 or 4570 <= wv[i] <= 4810 or 4910 <= wv[i] <= 4975 or 5055 <= wv[i] <= 5110:
@@ -3791,12 +3793,12 @@ def Model_fit_stack_normwmean_cont(speclist, tau, metal, A, speczs,ids, wv_range
 
 
 def Model_fit_stack_normwmean(speclist, tau, metal, A, speczs, ids, wv_range, name, pkl_name, res=10,
-                              fluxerr=False, flxerr_list='',fsps=True):
+                              fluxerr=False, flxerr_list='', fsps=True):
     ##############Stack spectra################
     wv, fl, err = Stack_spec_normwmean(speclist, speczs, wv_range)
 
     if fluxerr == True:
-        inwv,inerr=Readfile(flxerr_list)
+        inwv, inerr = Readfile(flxerr_list)
         err == inerr
 
     #############Prep output file###############
@@ -3832,9 +3834,9 @@ def Model_fit_stack_normwmean(speclist, tau, metal, A, speczs, ids, wv_range, na
             for ii in range(len(A)):
                 for iii in range(len(tau)):
                     if fsps == True:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs)
                     else:
-                        mlist=Make_model_list(ids,metal[i],A[ii],tau[iii],speczs,fsps=False)
+                        mlist = Make_model_list(ids, metal[i], A[ii], tau[iii], speczs, fsps=False)
                     mw, mf = Stack_model_normwmean_in_mfit(mlist, speczs, wgrid, fgrid, egrid,
                                                            np.arange(wv[0], wv[-1] + res, res))
                     cPickle.dump(mf, pklspec, protocol=-1)
@@ -3946,8 +3948,8 @@ def Model_fit_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, speczs, wv_
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100, tau_scale='../data/tau_scale_nage.dat'):
-
+                                                wv_range, name, pkl_name, repeats=100,
+                                                tau_scale='../data/tau_scale_nage.dat'):
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
@@ -3956,25 +3958,25 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, 
 
     outspec = open(pklname, 'rb')
 
-    mf=[]
+    mf = []
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
                 mf.append(np.array(cPickle.load(outspec)))
 
-    mf=np.array(mf)
+    mf = np.array(mf)
 
     outspec.close()
 
-    wv,flux,err=Stack_spec_normwmean(speclist,speczs,wv_range)
+    wv, flux, err = Stack_spec_normwmean(speclist, speczs, wv_range)
     mwv, mfl = Stack_model_normwmean(speclist, rmlist, speczs, wv_range)
 
     for xx in range(repeats):
 
-        fl= mfl + np.random.normal(0,err)
+        fl = mfl + np.random.normal(0, err)
 
         ##############Create chigrid#################
-        chigrid=np.sum(((fl - mf) / err) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128)
+        chigrid = np.sum(((fl - mf) / err) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128)
 
         chi = np.transpose(chigrid)
         ################Find best fit##################
@@ -4014,7 +4016,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, 
         alist.append(A[idmax[1]])
         mlist.append(metal[idmax[0]])
 
-    fn ='../mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -4022,7 +4024,8 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean(speclist, tau, metal, A, sim_m, 
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
+                                                          wv_range, name, pkl_name, repeats=100,
+                                                          tau_scale='../data/tau_scale_nage.dat'):
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = np.zeros(repeats)
@@ -4046,7 +4049,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
     ###############Get model list
     outspec = open(pklname, 'rb')
 
-    fmf=[]
+    fmf = []
     cmf = []
     for i in range(len(metal)):
         for ii in range(len(A)):
@@ -4055,7 +4058,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
                 fmf.append(MF[IDf])
                 cmf.append(MF[IDc])
 
-    fmf=np.array(fmf)
+    fmf = np.array(fmf)
     cmf = np.array(cmf)
 
     outspec.close()
@@ -4074,8 +4077,10 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
     for xx in range(repeats):
         fl = mfl + np.random.normal(0, err)
 
-        Fchi = np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128).T
-        Cchi = np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128).T
+        Fchi = np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128).T
+        Cchi = np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128).T
 
         newCchi = np.zeros(Cchi.shape)
         newFchi = np.zeros(Fchi.shape)
@@ -4113,9 +4118,9 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
 
         [idmax] = np.argwhere(prob == np.max(prob))
         alist[xx] = A[idmax[0]]
-        mlist[xx]= metal[idmax[1]]
+        mlist[xx] = metal[idmax[1]]
 
-    fn ='../mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -4123,14 +4128,13 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont_feat(speclist, tau, metal, 
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                     wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
-
+                                                     wv_range, name, pkl_name, repeats=100,
+                                                     tau_scale='../data/tau_scale_nage.dat'):
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
     alist = []
     rmlist = Make_model_list(ids, sim_m, sim_a, sim_t, speczs)
-
 
     wv, fl = Stack_model_normwmean(speclist, rmlist, speczs, wv_range)
 
@@ -4163,7 +4167,8 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, si
 
         fl = mfl + np.random.normal(0, err)
 
-        contgrid=np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128)
+        contgrid = np.sum(((fl[IDc] - cmf) / err[IDc]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128)
 
         cont_chi = np.transpose(contgrid)
         ################Find best fit##################
@@ -4207,7 +4212,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, si
         alist.append(A[idmax[0]])
         mlist.append(metal[idmax[1]])
 
-    fn ='../mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -4215,14 +4220,13 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_cont(speclist, tau, metal, A, si
 
 
 def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, sim_m, sim_a, sim_t, speczs, ids,
-                                                wv_range, name, pkl_name, repeats=100,tau_scale='../data/tau_scale_nage.dat'):
-
+                                                     wv_range, name, pkl_name, repeats=100,
+                                                     tau_scale='../data/tau_scale_nage.dat'):
     pklname = '../pickled_mstacks/%s.pkl' % pkl_name
 
     mlist = []
     alist = []
     rmlist = Make_model_list(ids, sim_m, sim_a, sim_t, speczs)
-
 
     wv, fl = Stack_model_normwmean(speclist, rmlist, speczs, wv_range)
 
@@ -4236,13 +4240,13 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, si
     ###############Get model list
     outspec = open(pklname, 'rb')
 
-    fmf=[]
+    fmf = []
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
                 fmf.append(np.array(cPickle.load(outspec))[IDf])
 
-    fmf=np.array(fmf)
+    fmf = np.array(fmf)
 
     outspec.close()
 
@@ -4253,7 +4257,8 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, si
 
         fl = mfl + np.random.normal(0, err)
 
-        featgrid=np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(np.float128)
+        featgrid = np.sum(((fl[IDf] - fmf) / err[IDf]) ** 2, axis=1).reshape([len(metal), len(A), len(tau)]).astype(
+            np.float128)
 
         feat_chi = np.transpose(featgrid)
 
@@ -4298,7 +4303,7 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, si
         alist.append(A[idmax[0]])
         mlist.append(metal[idmax[1]])
 
-    fn ='../mcerr/' + name + '.dat'
+    fn = '../mcerr/' + name + '.dat'
     dat = Table([mlist, alist], names=['metallicities', 'age'])
     ascii.write(dat, fn)
 
@@ -4307,17 +4312,18 @@ def Model_fit_sim_stack_MCerr_bestfit_normwmean_feat(speclist, tau, metal, A, si
 
 """Test Functions"""
 
-def Best_fit_model(input_file,metal,age, tau):
-    dat=fits.open(input_file)
+
+def Best_fit_model(input_file, metal, age, tau):
+    dat = fits.open(input_file)
 
     chi = []
     for i in range(len(metal)):
         chi.append(dat[i + 1].data)
     chi = np.array(chi)
 
-    x=np.argwhere(chi==np.min(chi))
-    print metal[x[0][0]],age[x[0][1]],tau[x[0][2]]
-    return metal[x[0][0]],age[x[0][1]],tau[x[0][2]]
+    x = np.argwhere(chi == np.min(chi))
+    print metal[x[0][0]], age[x[0][1]], tau[x[0][2]]
+    return metal[x[0][0]], age[x[0][1]], tau[x[0][2]]
 
 
 def Identify_stack_features(fl, err, mfl, mask):
@@ -4332,11 +4338,11 @@ def Identify_stack_features(fl, err, mfl, mask):
 
 def Single_gal_fit_fsps(spec, tau, metal, A, specz, name):
     #############Read in spectra#################
-    wv,fl,err=np.array(Readfile(spec,1))
+    wv, fl, err = np.array(Readfile(spec, 1))
     wv, fl, err = np.array([wv[wv < 11300], fl[wv < 11300], err[wv < 11300]])
 
     #############Prep output file###############
-    chifile='../chidat/%s_chidata.fits' % name
+    chifile = '../chidat/%s_chidata.fits' % name
     prihdr = fits.Header()
     prihdu = fits.PrimaryHDU(header=prihdr)
     hdulist = fits.HDUList(prihdu)
@@ -4354,17 +4360,17 @@ def Single_gal_fit_fsps(spec, tau, metal, A, specz, name):
         modellist.append(m)
 
     ##############Create chigrid and add to file#################
-    chigrid=np.zeros([len(metal),len(A),len(tau)])
+    chigrid = np.zeros([len(metal), len(A), len(tau)])
     for i in range(len(metal)):
         for ii in range(len(A)):
             for iii in range(len(tau)):
-                mwv,mf= np.array(Readfile(modellist[i][ii][iii],1))
-                mwv=mwv*(1+specz)
-                imf=interp1d(mwv,mf)(wv)
-                C=Scale_model(fl,err,imf)
-                chigrid[i][ii][iii]=Identify_stack(fl,err,imf*C)
+                mwv, mf = np.array(Readfile(modellist[i][ii][iii], 1))
+                mwv = mwv * (1 + specz)
+                imf = interp1d(mwv, mf)(wv)
+                C = Scale_model(fl, err, imf)
+                chigrid[i][ii][iii] = Identify_stack(fl, err, imf * C)
         inputgrid = np.array(chigrid[i])
-        spc ='metal_%s' % metal[i]
+        spc = 'metal_%s' % metal[i]
         mchi = fits.ImageHDU(data=inputgrid, name=spc)
         hdulist.append(mchi)
     ################Write chigrid file###############
@@ -4375,44 +4381,43 @@ def Single_gal_fit_fsps(spec, tau, metal, A, specz, name):
 
 
 def Stack_gal_spec(spec, wv, mregion):
-
-    flgrid=np.zeros([len(spec),len(wv)])
-    errgrid=np.zeros([len(spec),len(wv)])
+    flgrid = np.zeros([len(spec), len(wv)])
+    errgrid = np.zeros([len(spec), len(wv)])
     for i in range(len(spec)):
-        wave,flux,error=np.array(Get_flux(spec[i]))
+        wave, flux, error = np.array(Get_flux(spec[i]))
         mask = np.array([wave[0] < U < wave[-1] for U in wv])
-        ifl=interp1d(wave,flux)(wv[mask])
-        ier=interp1d(wave,error)(wv[mask])
-        if sum(mregion[i])>0:
+        ifl = interp1d(wave, flux)(wv[mask])
+        ier = interp1d(wave, error)(wv[mask])
+        if sum(mregion[i]) > 0:
             # flmask=np.array([mregion[i][0] < U < mregion[i][1] for U in wv[mask]])
             for ii in range(len(wv[mask])):
-                if mregion[i][0] < wv[mask][ii] <mregion[i][1]:
-                    ifl[ii]=0
-                    ier[ii]=0
-            # flgrid[i][mask]=ifl[flmask]
-            # errgrid[i][mask]=ier[flmask]
+                if mregion[i][0] < wv[mask][ii] < mregion[i][1]:
+                    ifl[ii] = 0
+                    ier[ii] = 0
+                    # flgrid[i][mask]=ifl[flmask]
+                    # errgrid[i][mask]=ier[flmask]
         # else:
         flgrid[i][mask] = ifl
         errgrid[i][mask] = ier
     ################
 
-    flgrid=np.transpose(flgrid)
-    errgrid=np.transpose(errgrid)
-    weigrid=errgrid**(-2)
-    infmask=np.isinf(weigrid)
-    weigrid[infmask]=0
+    flgrid = np.transpose(flgrid)
+    errgrid = np.transpose(errgrid)
+    weigrid = errgrid ** (-2)
+    infmask = np.isinf(weigrid)
+    weigrid[infmask] = 0
     ################
 
-    stack,err=np.zeros([2,len(wv)])
+    stack, err = np.zeros([2, len(wv)])
     for i in range(len(wv)):
-        stack[i]=np.sum(flgrid[i]*weigrid[[i]])/np.sum(weigrid[i])
-        err[i]=1/np.sqrt(np.sum(weigrid[i]))
+        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
+        err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
     ################
 
     return wv, stack, err
 
 
-def B_factor(input_chi_file,tau,metal,age):
+def B_factor(input_chi_file, tau, metal, age):
     ####### Heirarchy is metallicity_-> age -> tau
     ####### Change chi to probabilites using sympy
     ####### for its arbitrary precission, must be done in loop
@@ -4422,27 +4427,27 @@ def B_factor(input_chi_file,tau,metal,age):
         chi.append(dat[i + 1].data)
     chi = np.array(chi)
 
-    prob=[]
+    prob = []
     for i in range(len(metal)):
-        preprob1=[]
+        preprob1 = []
         for ii in range(len(age)):
-            preprob2=[]
+            preprob2 = []
             for iii in range(len(tau)):
-                preprob2.append(sp.N(sp.exp(-chi[i][ii][iii]/2)))
+                preprob2.append(sp.N(sp.exp(-chi[i][ii][iii] / 2)))
             preprob1.append(preprob2)
         prob.append(preprob1)
 
     ######## Marginalize over all tau
     ######## End up with age vs metallicity matricies
     ######## use unlogged tau
-    ultau=np.append(0,np.power(10,tau[1:]-9))
+    ultau = np.append(0, np.power(10, tau[1:] - 9))
     M = []
     for i in range(len(metal)):
-        A=[]
+        A = []
         for ii in range(len(age)):
-            T=[]
+            T = []
             for iii in range(len(tau) - 1):
-                T.append(sp.N((ultau[iii + 1] - ultau[iii]) * (prob[i][ii][iii] + prob[i][ii][iii+1]) / 2))
+                T.append(sp.N((ultau[iii + 1] - ultau[iii]) * (prob[i][ii][iii] + prob[i][ii][iii + 1]) / 2))
             A.append(sp.mpmath.fsum(T))
         M.append(A)
 
@@ -4464,26 +4469,26 @@ def B_factor(input_chi_file,tau,metal,age):
     return C
 
 
-def Highest_likelihood_model_rfv(galaxy,speclist,rshift,RF_v, bfmetal, bfage,tau,wv_range):
-    wv,fl,er=Stack_spec_normwmean_rfv(speclist,rshift,RF_v,wv_range)
+def Highest_likelihood_model_rfv(galaxy, speclist, rshift, RF_v, bfmetal, bfage, tau, wv_range):
+    wv, fl, er = Stack_spec_normwmean_rfv(speclist, rshift, RF_v, wv_range)
 
-    chi=[]
+    chi = []
     for i in range(len(tau)):
-        mlist=Make_model_list(galaxy, bfmetal,  bfage, tau[i] ,rshift)
-        mwv,mfl=Stack_model_normwmean_rfv(speclist,mlist,rshift,RF_v,wv_range)
-        chi.append(Identify_stack(fl,er,mfl))
+        mlist = Make_model_list(galaxy, bfmetal, bfage, tau[i], rshift)
+        mwv, mfl = Stack_model_normwmean_rfv(speclist, mlist, rshift, RF_v, wv_range)
+        chi.append(Identify_stack(fl, er, mfl))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
 
 
-def Highest_likelihood_model(galaxy,speclist,rshift,bfmetal, bfage,tau,wv_range):
-    wv,fl,er=Stack_spec_normwmean(speclist,rshift,wv_range)
+def Highest_likelihood_model(galaxy, speclist, rshift, bfmetal, bfage, tau, wv_range):
+    wv, fl, er = Stack_spec_normwmean(speclist, rshift, wv_range)
 
-    chi=[]
+    chi = []
     for i in range(len(tau)):
-        mlist=Make_model_list(galaxy, bfmetal,  bfage, tau[i] ,rshift)
-        mwv,mfl=Stack_model_normwmean(speclist,mlist,rshift,wv_range)
-        chi.append(Identify_stack(fl,er,mfl))
+        mlist = Make_model_list(galaxy, bfmetal, bfage, tau[i], rshift)
+        mwv, mfl = Stack_model_normwmean(speclist, mlist, rshift, wv_range)
+        chi.append(Identify_stack(fl, er, mfl))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
 
@@ -4544,11 +4549,10 @@ def Get_parameters(gal_id, specz, metal, age, tau):
 
 
 class Stack(object):
-
-    def __init__(self,speclist,redshifts,wv_range):
-        self.speclist=speclist
-        self.redshifts=redshifts
-        self.wv_range=wv_range
+    def __init__(self, speclist, redshifts, wv_range):
+        self.speclist = speclist
+        self.redshifts = redshifts
+        self.wv_range = wv_range
 
     def Stack_normwmean(self):
         flgrid = np.zeros([len(self.speclist), len(self.wv_range)])
@@ -4608,12 +4612,12 @@ class Stack(object):
 
         IDX = [U for U in range(len(self.wv_range)) if stack[U] > 0]
 
-        self.wv=self.wv_range[IDX]
-        self.fl=stack[IDX]
-        self.er=err[IDX]
+        self.wv = self.wv_range[IDX]
+        self.fl = stack[IDX]
+        self.er = err[IDX]
 
-    def Stack_normwmean_model(self,modellist):
-        self.modellist=modellist
+    def Stack_normwmean_model(self, modellist):
+        self.modellist = modellist
 
         flgrid, errgrid = [[], []]
         reg = np.arange(4000, 4210, 1)
@@ -4652,7 +4656,7 @@ class Stack(object):
         self.mwv = self.wv_range
         self.mfl = stack
 
-    def Highest_likelihood_model_mlist(self,galaxy, bfmetal, bfage, tau):
+    def Highest_likelihood_model_mlist(self, galaxy, bfmetal, bfage, tau):
         self.galaxy = galaxy
 
         chi = []
@@ -4667,9 +4671,7 @@ class Stack(object):
 
 
 class Galaxy_ids(object):
-
-    def __init__(self,masslist):
-
+    def __init__(self, masslist):
         self.masslist = masslist
         self.ids = 0
         self.speclist = 0
@@ -4684,16 +4686,16 @@ class Galaxy_ids(object):
         self.lmass, self.rshift, self.rad, self.sig, self.comp = \
             np.array([self.lmass, self.rshift, self.rad, self.sig, self.comp]).astype(float)
 
-        self.IDC = [U for U in range(len(self.ids)) if 0.11 > self.comp[U]]         # compact sample stack
-        self.IDD = [U for U in range(len(self.ids)) if 0.11 < self.comp[U]]         # diffuse sample stack
-        self.IDML = [U for U in range(len(self.ids)) if 10.931 > self.lmass[U]]     # low mass sample stack
-        self.IDMH = [U for U in range(len(self.ids)) if 10.931 < self.lmass[U]]     # high mass sample stack
-        self.IDlz = [U for U in range(len(self.ids)) if self.rshift[U] < 1.13]           # low z sample
-        self.IDmz = [U for U in range(len(self.ids)) if 1.13 < self.rshift[U] < 1.3]# med z sample
-        self.IDhz = [U for U in range(len(self.ids)) if 1.3 < self.rshift[U]]       # hi z sample
+        self.IDC = [U for U in range(len(self.ids)) if 0.11 > self.comp[U]]  # compact sample stack
+        self.IDD = [U for U in range(len(self.ids)) if 0.11 < self.comp[U]]  # diffuse sample stack
+        self.IDML = [U for U in range(len(self.ids)) if 10.931 > self.lmass[U]]  # low mass sample stack
+        self.IDMH = [U for U in range(len(self.ids)) if 10.931 < self.lmass[U]]  # high mass sample stack
+        self.IDlz = [U for U in range(len(self.ids)) if self.rshift[U] < 1.13]  # low z sample
+        self.IDmz = [U for U in range(len(self.ids)) if 1.13 < self.rshift[U] < 1.3]  # med z sample
+        self.IDhz = [U for U in range(len(self.ids)) if 1.3 < self.rshift[U]]  # hi z sample
         self.IDml = [U for U in range(len(self.ids)) if 10 < self.lmass[U] < 10.7]  # low mass sample
-        self.IDmm = [U for U in range(len(self.ids)) if 10.7 <= self.lmass[U] < 10.9]# med mass sample
-        self.IDmh = [U for U in range(len(self.ids)) if 10.9 <= self.lmass[U]]      # hi mass sample
+        self.IDmm = [U for U in range(len(self.ids)) if 10.7 <= self.lmass[U] < 10.9]  # med mass sample
+        self.IDmh = [U for U in range(len(self.ids)) if 10.9 <= self.lmass[U]]  # hi mass sample
 
         self.ids_C = self.ids[self.IDC]
         self.ids_D = self.ids[self.IDD]
@@ -4754,8 +4756,8 @@ class Galaxy_ids(object):
 class Combine_1D_parameters(object):
     ###Given a set of 3D chi square distributions these will return a 1D parameter distribution with mean and 1-sigma
 
-    def __init__(self,cont_chifits,feat_chifits, speclist, rshift, tau, metal, age,
-                stack_scale=False , age_conv='../data/tau_scale_ntau.dat'):
+    def __init__(self, cont_chifits, feat_chifits, speclist, rshift, tau, metal, age,
+                 stack_scale=False, age_conv='../data/tau_scale_ntau.dat'):
         self.cont_chifits = cont_chifits
         self.feat_chifits = feat_chifits
         self.speclist = speclist
@@ -4776,24 +4778,24 @@ class Combine_1D_parameters(object):
 
     def Get_age(self):
         ### If scaling with stack this bit will provide the scaling factor
-        reg = np.arange(4000, 4210, 1)                      # region that will be used to normalize
-        regint = np.zeros(len(self.speclist))                    # initialize array which will contain the norm factors
+        reg = np.arange(4000, 4210, 1)  # region that will be used to normalize
+        regint = np.zeros(len(self.speclist))  # initialize array which will contain the norm factors
 
         if self.stack_scale == True:
             for i in range(len(self.speclist)):
-                wv, fl, er = np.load(self.speclist[i])           # read in data
-                ifl = interp1d(wv / (1 + self.rshift[i]), fl)    # interpolate flux in restframe
-                regint[i] = np.trapz(ifl(reg), reg)         # get norm factor
+                wv, fl, er = np.load(self.speclist[i])  # read in data
+                ifl = interp1d(wv / (1 + self.rshift[i]), fl)  # interpolate flux in restframe
+                regint[i] = np.trapz(ifl(reg), reg)  # get norm factor
 
-            scale_fact = min(regint) / regint               # adjust values so that its the amount each sed needs to be
-                                                            # divided by to be normalized to the lowest amount
+            scale_fact = min(regint) / regint  # adjust values so that its the amount each sed needs to be
+            # divided by to be normalized to the lowest amount
         else:
-            scale_fact = np.ones(len(self.speclist))             # if not using stack scaling factor this will set array to ones
+            scale_fact = np.ones(len(self.speclist))  # if not using stack scaling factor this will set array to ones
 
         ### This is used to get information necessary for interpolation later to change age to average age
-        scale = Readfile(self.age_conv, 1)                       # read in scaling table
-        overhead = np.zeros(len(scale))                     # initialize array which will contain how many lines to erase
-        ultau = np.append(0, np.power(10, self.tau[1:] - 9))     # un-log tau for calculations
+        scale = Readfile(self.age_conv, 1)  # read in scaling table
+        overhead = np.zeros(len(scale))  # initialize array which will contain how many lines to erase
+        ultau = np.append(0, np.power(10, self.tau[1:] - 9))  # un-log tau for calculations
 
         for i in range(len(scale)):
             amt = []
@@ -4834,10 +4836,12 @@ class Combine_1D_parameters(object):
                     newFchi[ii] = Fchi[ii]
                 else:
                     cframe = interp2d(self.metal, scale[ii], Cchi[ii])(self.metal, self.age[:-overhead[ii]])
-                    newCchi[ii] = np.append(cframe, np.repeat([np.repeat(1E5, len(self.metal))], overhead[ii], axis=0), axis=0)
+                    newCchi[ii] = np.append(cframe, np.repeat([np.repeat(1E5, len(self.metal))], overhead[ii], axis=0),
+                                            axis=0)
 
                     fframe = interp2d(self.metal, scale[ii], Fchi[ii])(self.metal, self.age[:-overhead[ii]])
-                    newFchi[ii] = np.append(fframe, np.repeat([np.repeat(1E5, len(self.metal))], overhead[ii], axis=0), axis=0)
+                    newFchi[ii] = np.append(fframe, np.repeat([np.repeat(1E5, len(self.metal))], overhead[ii], axis=0),
+                                            axis=0)
 
             ####### Create normalize probablity marginalized over tau
             cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
@@ -4845,7 +4849,6 @@ class Combine_1D_parameters(object):
             Pc = np.trapz(cprob, ultau, axis=2)
             Ac = [np.trapz(U, self.metal) for U in Pc.T]
             Cc = np.trapz(np.trapz(Pc, self.age, axis=1), self.metal)
-
 
             fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
@@ -4890,24 +4893,24 @@ class Combine_1D_parameters(object):
 
     def Get_metallicity(self):
         ### If scaling with stack this bit will provide the scaling factor
-        reg = np.arange(4000, 4210, 1)                      # region that will be used to normalize
-        regint = np.zeros(len(self.speclist))                    # initialize array which will contain the norm factors
+        reg = np.arange(4000, 4210, 1)  # region that will be used to normalize
+        regint = np.zeros(len(self.speclist))  # initialize array which will contain the norm factors
 
         if self.stack_scale == True:
             for i in range(len(self.speclist)):
-                wv, fl, er = np.load(self.speclist[i])           # read in data
-                ifl = interp1d(wv / (1 + self.rshift[i]), fl)    # interpolate flux in restframe
-                regint[i] = np.trapz(ifl(reg), reg)         # get norm factor
+                wv, fl, er = np.load(self.speclist[i])  # read in data
+                ifl = interp1d(wv / (1 + self.rshift[i]), fl)  # interpolate flux in restframe
+                regint[i] = np.trapz(ifl(reg), reg)  # get norm factor
 
-            scale_fact = min(regint) / regint               # adjust values so that its the amount each sed needs to be
-                                                            # divided by to be normalized to the lowest amount
+            scale_fact = min(regint) / regint  # adjust values so that its the amount each sed needs to be
+            # divided by to be normalized to the lowest amount
         else:
-            scale_fact = np.ones(len(self.speclist))             # if not using stack scaling factor this will set array to ones
+            scale_fact = np.ones(len(self.speclist))  # if not using stack scaling factor this will set array to ones
 
         ### This is used to get information necessary for interpolation later to change age to average age
-        scale = Readfile(self.age_conv, 1)                       # read in scaling table
-        overhead = np.zeros(len(scale))                     # initialize array which will contain how many lines to erase
-        ultau = np.append(0, np.power(10, self.tau[1:] - 9))     # un-log tau for calculations
+        scale = Readfile(self.age_conv, 1)  # read in scaling table
+        overhead = np.zeros(len(scale))  # initialize array which will contain how many lines to erase
+        ultau = np.append(0, np.power(10, self.tau[1:] - 9))  # un-log tau for calculations
 
         for i in range(len(scale)):
             amt = []
@@ -5000,3 +5003,80 @@ class Combine_1D_parameters(object):
         self.mmean = mmean
         self.mle = mmean - mle
         self.mhe = mhe - mmean
+
+
+class RT_spec(object):
+    def __init__(self, galaxy_id, pad=100):
+        self.galaxy_id = galaxy_id
+        self.pad = pad
+
+        """ 
+        self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
+                         will tell Grizli the PA
+        **
+        self.galaxy_id - used to id galaxy and import spectra
+        **
+        self.pad - Grizli uses this to add extra pixels to the edge of an image to account for galaxies near the 
+                   edge, 100 is usually enough
+        **
+        self.beam - information used to make models
+        **
+        self.wv - output wavelength array of simulated spectra
+        **
+        self.fl - output flux array of simulated spectra
+        """
+
+        gal_wv, gal_fl, gal_er = np.load('../spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
+        self.flt_input = '../data/galaxy_flts/%s_flt.fits' % self.galaxy_id
+
+        IDX = [U for U in range(len(gal_wv)) if 7900 <= gal_wv[U] <= 11300]
+
+        self.gal_wv = gal_wv[IDX]
+        self.gal_fl = gal_fl[IDX]
+        self.gal_er = gal_er[IDX]
+
+        ## Create Grizli model object
+        sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
+                                         direct_file=self.flt_input,
+                                         force_grism='G102', pad=self.pad)
+
+        sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
+
+        keep = sim_g102.catalog['mag'] < 29
+        c = sim_g102.catalog
+
+        sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
+
+        ## Grab object near the center of the image
+        dr = np.sqrt((sim_g102.catalog['x_flt'] - 579) ** 2 + (sim_g102.catalog['y_flt'] - 522) ** 2)
+        ix = np.argmin(dr)
+        id = sim_g102.catalog['id'][ix]
+
+        ## Spectrum cutouts
+        self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
+
+    def Sim_spec(self, metal, age, tau, redshift):
+        import pysynphot as S
+        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+
+        wave, fl = np.load(model)
+        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
+        spec = spec.redshift(redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
+        spec.convert('flam')
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+
+        ifl = interp1d(w, f)(self.gal_wv)
+
+        ## Get sensitivity function
+        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
+        filt = interp1d(fwv, ffl)(self.gal_wv)
+
+        adj_ifl = ifl /filt
+
+        C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
+
+        self.fl = C * adj_ifl
