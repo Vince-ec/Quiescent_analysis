@@ -4941,6 +4941,8 @@ class RT_spec(object):
         self.gal_fl = gal_fl[IDX]
         self.gal_er = gal_er[IDX]
 
+        self.gal_fl[self.gal_fl < 0 ] = 0
+
         ## Create Grizli model object
         sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
                                          direct_file=self.flt_input,
