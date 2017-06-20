@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from spec_id import RT_spec
+from spec_id import RT_spec, Specz_fit
 import matplotlib.pyplot as plt
 from vtl.Readfile import Readfile
 from glob import glob
@@ -16,14 +16,8 @@ sea.set(style='ticks')
 sea.set_style({"xtick.direction": "in","ytick.direction": "in"})
 colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=True)
 
-qgDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
-gsDB = qgDB[qgDB['spec'] == True]
+metal=np.array([0.002,0.01,0.02,0.03])
+age=np.array([1.0,2.0,3.0, 4.0, 5.0, 6.0])
+z=np.arange(1.084 - 0.3 ,1.084 + 0.3,.05)
 
-s_spec = RT_spec('s39170')
-s_spec.Sim_spec(0.024,4.7,8.0,1.023)
-
-plt.figure(figsize=[15,5])
-plt.plot(s_spec.gal_wv,s_spec.fl)
-plt.errorbar(s_spec.gal_wv,s_spec.gal_fl,s_spec.gal_er,fmt = 'o',ms = 2)
-plt.show()
-plt.close()
+Specz_fit('s39170',metal,age,z,'39170_test')

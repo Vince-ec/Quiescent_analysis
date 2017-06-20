@@ -2415,120 +2415,32 @@ def Single_gal_fit_cont(spec, tau, metal, A, specz, galaxy, name, fsps=True):
     return
 
 
-def Specz_fit(galaxy, spec, rshift, name):
-    #############Parameters#####################
-    metal = np.array([0.0031, 0.0061, 0.0085, 0.012, 0.015, 0.019, 0.024])
-    A = [0.5, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
-
-    #############Read in spectra#################
-    wv, fl, err = np.array(Readfile(spec, 1))
-    IDW = []
-    for i in range(len(wv)):
-        if 7950 < wv[i] < 11000:
-            IDW.append(i)
-    wv, fl, err = np.array([wv[IDW], fl[IDW], err[IDW]])
+def Specz_fit(galaxy, metal, age, rshift, name):
+    #############initialize spectra#################
+    spec = RT_spec(galaxy)
 
     #############Prep output file###############
-    chifile = 'rshift_dat/%s_chidata.fits' % name
-    prihdr = fits.Header()
-    prihdu = fits.PrimaryHDU(header=prihdr)
-    hdulist = fits.HDUList(prihdu)
-
-    #############Get list of models to fit againts##############
-    filepath = '../../../fsps_models_for_fit/rshift_models/'
-    modellist = []
-    for i in range(len(metal)):
-        m = []
-        for ii in range(len(A)):
-            a = []
-            for iii in range(len(rshift)):
-                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii], galaxy))
-            m.append(a)
-        modellist.append(m)
+    chifile = '../rshift_dat/%s_z_fit' % name
 
     ##############Create chigrid and add to file#################
-    chigrid = np.zeros([len(metal), len(A), len(rshift)])
+    mfl = np.zeros([len(metal)*len(age)*len(rshift),len(spec.gal_wv)])
     for i in range(len(metal)):
-        for ii in range(len(A)):
+        for ii in range(len(age)):
             for iii in range(len(rshift)):
-                mwv, mf = np.load(modellist[i][ii][iii])
-                imf = interp1d(mwv, mf)(wv)
-                C = Scale_model(fl, err, imf)
-                chigrid[i][ii][iii] = Identify_stack(fl, err, imf * C)
-        inputgrid = np.array(chigrid[i])
-        spc = 'metal_%s' % metal[i]
-        mchi = fits.ImageHDU(data=inputgrid, name=spc)
-        hdulist.append(mchi)
-    ################Write chigrid file###############
+                spec.Sim_spec(metal[i], age[i], 0, rshift[iii])
+                mfl[i*len(age)*len(rshift)+ii*len(rshift)+iii]=spec.fl
+    chigrid = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(rshift)]).\
+        astype(np.float128)
 
-    hdulist.writeto(chifile)
+    np.save(chifile,chigrid)
+    ###############Write chigrid file###############
 
-    Analyze_specz(chifile, rshift, name)
+    Analyze_specz(chifile + '.npy', rshift, metal, age, name)
 
     print 'Done!'
 
     return
 
-
-def Specz_fit_feat(galaxy, spec, rshift, name):
-    #############Parameters#####################
-    metal = np.array([0.0031, 0.0061, 0.0085, 0.012, 0.015, 0.019, 0.024])
-    A = [0.5, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5]
-
-    #############Read in spectra#################
-    wv, fl, err = np.array(Readfile(spec, 1))
-    IDW = []
-    for i in range(len(wv)):
-        if 7950 < wv[i] < 11300:
-            IDW.append(i)
-    wv, fl, err = np.array([wv[IDW], fl[IDW], err[IDW]])
-
-    #############Prep output file###############
-    chifile = '../rshift_dat/%s_chidata.fits' % name
-    prihdr = fits.Header()
-    prihdu = fits.PrimaryHDU(header=prihdr)
-    hdulist = fits.HDUList(prihdu)
-
-    #############Get list of models to fit againts##############
-    filepath = '../../../fsps_models_for_fit/rshift_models/'
-    modellist = []
-    for i in range(len(metal)):
-        m = []
-        for ii in range(len(A)):
-            a = []
-            for iii in range(len(rshift)):
-                a.append(filepath + 'm%s_a%s_t8.0_z%s_%s_model.npy' % (metal[i], A[ii], rshift[iii], galaxy))
-            m.append(a)
-        modellist.append(m)
-
-    ##############Create chigrid and add to file#################
-    chigrid = np.zeros([len(metal), len(A), len(rshift)])
-    for i in range(len(metal)):
-        for ii in range(len(A)):
-            for iii in range(len(rshift)):
-                mwv, mf = np.load(modellist[i][ii][iii])
-                ww = wv / (1 + rshift[iii])
-                IDF = []
-                for iv in range(len(ww)):
-                    if 3910 <= ww[iv] <= 3980 or 4082 <= ww[iv] <= 4122 or 4250 <= ww[iv] <= 4400 or 4830 <= ww[
-                        iv] <= 4930 or 5109 <= ww[iv] <= 5250:
-                        IDF.append(iv)
-                imf = interp1d(mwv, mf)(wv[IDF])
-                C = Scale_model(fl[IDF], err[IDF], imf)
-                chigrid[i][ii][iii] = Identify_stack(fl[IDF], err[IDF], imf * C)
-        inputgrid = np.array(chigrid[i])
-        spc = 'metal_%s' % metal[i]
-        mchi = fits.ImageHDU(data=inputgrid, name=spc)
-        hdulist.append(mchi)
-    ################Write chigrid file###############
-
-    hdulist.writeto(chifile)
-
-    Analyze_specz(chifile, rshift, name)
-
-    print 'Done!'
-
-    return
 
 
 def Norm_P_specz(rshift, metal, age, chi):
@@ -2582,21 +2494,15 @@ def Norm_P_specz(rshift, metal, age, chi):
 
 def Analyze_specz(chifits, rshift, metal, age, name):
     ####### Read in file
-    dat = fits.open(chifits)
-    chi = []
-    for i in range(len(metal)):
-        chi.append(dat[i + 1].data)
-    chi = np.array(chi)
+    dat = np.load(chifits)
 
-    ####### Create normalize probablity marginalized over tau
-    prob = np.array(Norm_P_specz(rshift, metal, age, chi.T)).astype(np.float128)
+    ###### Create normalize probablity marginalized over tau
+    prob = np.array(Norm_P_specz(rshift, metal, age, dat.T)).astype(np.float128)
 
-    ####### get best fit values
+    ###### get best fit values
     print 'Best fit specz is %s' % rshift[np.argmax(prob)]
 
-    rshiftdat = Table([rshift, prob], names=['rshifts', 'Pz'])
-    ascii.write(rshiftdat, '../rshift_dat/%s_Pofz.dat' % name)
-
+    np.save('../rshift_dat/%s_Pofz' % name,[rshift, prob])
     return
 
 
