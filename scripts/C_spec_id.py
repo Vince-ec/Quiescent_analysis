@@ -1,12 +1,21 @@
 import numpy as np
-from scipy.interpolate import interp1d
-import pysynphot as S
+from scipy.interpolate import interp1d, interp2d
+from astropy.cosmology import Planck13 as cosmo
 import sympy as sp
 import grizli
+from vtl.Readfile import Readfile
+
 
 def Scale_model(D, sig, M):
     C = np.sum(((D * M) / sig ** 2)) / np.sum((M ** 2 / sig ** 2))
     return C
+
+
+def Oldest_galaxy(z):
+    return cosmo.age(z).value
+
+
+#####SPECZ FIT
 
 class RT_spec(object):
     def __init__(self, galaxy_id, pad=100):
@@ -176,3 +185,229 @@ def Specz_fit(galaxy, metal, age, rshift, name):
     return
 
 # todo upload files
+
+#####GALAXY FIT
+
+class Gen_spec(object):
+    def __init__(self, galaxy_id, redshift, pad=100):
+        self.galaxy_id = galaxy_id
+        self.redshift = redshift
+        self.pad = pad
+
+        """ 
+        self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
+                         will tell Grizli the PA
+        **
+        self.galaxy_id - used to id galaxy and import spectra
+        **
+        self.pad - Grizli uses this to add extra pixels to the edge of an image to account for galaxies near the 
+                   edge, 100 is usually enough
+        **
+        self.beam - information used to make models
+        **
+        self.wv - output wavelength array of simulated spectra
+        **
+        self.fl - output flux array of simulated spectra
+        """
+
+        gal_wv, gal_fl, gal_er = \
+            np.load('../../../../fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
+        self.flt_input = '../../../../fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
+
+        IDX = [U for U in range(len(gal_wv)) if 7900 <= gal_wv[U] <= 11300]
+
+        self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
+        self.gal_wv = gal_wv[IDX]
+        self.gal_fl = gal_fl[IDX]
+        self.gal_er = gal_er[IDX]
+
+        self.gal_wv_rf = self.gal_wv_rf[self.gal_fl > 0 ]
+        self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
+        self.gal_er = self.gal_er[self.gal_fl > 0 ]
+        self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
+
+        ## Create Grizli model object
+        sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
+                                         direct_file=self.flt_input,
+                                         force_grism='G102', pad=self.pad)
+
+        sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
+
+        keep = sim_g102.catalog['mag'] < 29
+        c = sim_g102.catalog
+
+        sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
+
+        ## Grab object near the center of the image
+        dr = np.sqrt((sim_g102.catalog['x_flt'] - 579) ** 2 + (sim_g102.catalog['y_flt'] - 522) ** 2)
+        ix = np.argmin(dr)
+        id = sim_g102.catalog['id'][ix]
+
+        ## Spectrum cutouts
+        self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
+
+    def Sim_spec(self, metal, age, tau):
+        import pysynphot as S
+        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+
+        wave, fl = np.load(model)
+        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
+        spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
+        spec.convert('flam')
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+
+        ifl = interp1d(w, f)(self.gal_wv)
+
+        ## Get sensitivity function
+        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
+        filt = interp1d(fwv, ffl)(self.gal_wv)
+
+        adj_ifl = ifl /filt
+
+        C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
+
+        self.fl = C * adj_ifl
+
+
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name):
+    #############Read in spectra#################
+    spec = Gen_spec(galaxy,specz)
+
+    if galaxy == 'n21156' or galaxy == 's39170' or galaxy == 'n34694' or galaxy == 's45792':
+        IDer = []
+        for ii in range(len(spec.gal_wv_rf)):
+            if 4855 <= spec.gal_wv_rf[ii] <= 4880:
+                IDer.append(ii)
+        spec.gal_er[IDer] = 1E8
+        spec.gal_fl[IDer] = 0
+
+    IDF = []
+    for i in range(len(spec.gal_wv_rf)):
+        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 3910 <= spec.gal_wv_rf[i] <= 4030 or 4080 <= spec.gal_wv_rf[i] <= 4125 \
+                or 4250 <= spec.gal_wv_rf[i] <= 4385 or 4515 <= spec.gal_wv_rf[i] <= 4570 or 4810 <= spec.gal_wv_rf[i]\
+                <= 4910 or 4975 <= spec.gal_wv_rf[i] <= 5055 or 5110 <= spec.gal_wv_rf[i] <= 5285:
+            IDF.append(i)
+
+    IDC = []
+    for i in range(len(spec.gal_wv_rf)):
+        if spec.gal_wv_rf[0] <= spec.gal_wv_rf[i] <= 3800 or 3850 <= spec.gal_wv_rf[i] <= 3910 or 4030 <= \
+                spec.gal_wv_rf[i] <= 4080 or 4125 <= spec.gal_wv_rf[i] <= 4250 or 4385 <= spec.gal_wv_rf[i] <= 4515 or \
+                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= spec.gal_wv_rf[i] <= \
+                5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
+            IDC.append(i)
+
+    #############Prep output files: 1-full, 2-cont, 3-feat###############
+    chifile1 = '/home/vestrada78840/chidat/%s_chidata' % name
+    chifile2 = '/home/vestrada78840/chidat/%s_cont_chidata' % name
+    chifile3 = '/home/vestrada78840/chidat/%s_feat_chidata' % name
+
+    ##############Create chigrid and add to file#################
+    mfl = np.zeros([len(metal)*len(age)*len(tau),len(spec.gal_wv_rf)])
+    mfl_f = np.zeros([len(metal)*len(age)*len(tau),len(IDF)])
+    mfl_c = np.zeros([len(metal)*len(age)*len(tau),len(IDC)])
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                spec.Sim_spec(metal[i], age[ii], tau[iii])
+                mfl[i*len(age)*len(tau)+ii*len(tau)+iii]=spec.fl
+                mfl_f[i*len(age)*len(tau)+ii*len(tau)+iii]=spec.fl[IDF]
+                mfl_c[i*len(age)*len(tau)+ii*len(tau)+iii]=spec.fl[IDC]
+    chigrid1 = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).\
+        astype(np.float128)
+    chigrid2 = np.sum(((spec.gal_fl[IDF] - mfl_f) / spec.gal_er[IDF]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).\
+        astype(np.float128)
+    chigrid3 = np.sum(((spec.gal_fl[IDC] - mfl_c) / spec.gal_er[IDC]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).\
+        astype(np.float128)
+
+    ################Write chigrid file###############
+    np.save(chifile1,chigrid1)
+    np.save(chifile2,chigrid2)
+    np.save(chifile3,chigrid3)
+
+    P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau)
+
+    np.save('/home/vestrada78840/chidat/%s_tZ_pos' % name,P)
+    np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
+    np.save('/home/vestrada78840/chidat/%s_t_pos' % name,[age,Pt])
+
+    print 'Done!'
+    return
+
+
+def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
+                         age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
+    ####### Get maximum age
+    max_age = Oldest_galaxy(specz)
+
+    ####### Read in file
+    Cchi = np.load(contfits).T
+    Fchi = np.load(featfits).T
+
+    Fchi[:, len(age[age <= max_age]):, :] = 1E5
+    Cchi[:, len(age[age <= max_age]):, :] = 1E5
+
+    ####### Get scaling factor for tau reshaping
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 6.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    ######## Reshape likelihood to get average age instead of age when marginalized
+    newCchi = np.zeros(Cchi.shape)
+    newFchi = np.zeros(Fchi.shape)
+
+    for i in range(len(Cchi)):
+        if i == 0:
+            newCchi[i] = Cchi[i]
+            newFchi[i] = Fchi[i]
+        else:
+            cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
+            newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+            fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
+            newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
+
+    Pc = np.trapz(cprob, ultau, axis=2)
+    Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
+
+    fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
+
+    Pf = np.trapz(fprob, ultau, axis=2)
+    Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
+
+    comb_prob = cprob / Cc * fprob / Cf
+
+    prob = np.trapz(comb_prob, ultau, axis=2)
+    C0 = np.trapz(np.trapz(prob, age, axis=1), metal)
+    prob /= C0
+
+    #### Get Z and t posteriors
+
+    PZ = np.trapz(prob, age, axis=1)
+    Pt = np.trapz(prob.T, metal,axis=1)
+
+    return prob.T, PZ,Pt
+
+
