@@ -2427,7 +2427,7 @@ def Specz_fit(galaxy, metal, age, rshift, name):
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(rshift)):
-                spec.Sim_spec(metal[i], age[i], 0, rshift[iii])
+                spec.Sim_spec(metal[i], age[ii], 0, rshift[iii])
                 mfl[i*len(age)*len(rshift)+ii*len(rshift)+iii]=spec.fl
     chigrid = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(rshift)]).\
         astype(np.float128)
@@ -2440,7 +2440,6 @@ def Specz_fit(galaxy, metal, age, rshift, name):
     print 'Done!'
 
     return
-
 
 
 def Norm_P_specz(rshift, metal, age, chi):
@@ -4941,7 +4940,9 @@ class RT_spec(object):
         self.gal_fl = gal_fl[IDX]
         self.gal_er = gal_er[IDX]
 
-        self.gal_fl[self.gal_fl < 0 ] = 0
+        self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
+        self.gal_er = self.gal_er[self.gal_fl > 0 ]
+        self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
         ## Create Grizli model object
         sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
