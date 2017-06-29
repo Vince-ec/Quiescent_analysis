@@ -1956,9 +1956,8 @@ def Stack_spec_normwmean(spec, redshifts, wv):
     return wv[IDX], stack[IDX], err[IDX]
 
 
-def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range):
+def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range, n_win):
     flgrid, errgrid = [[], []]
-    reg = np.arange(4000, 4210, 1)
 
     for i in range(len(speclist)):
         #######read in spectra
@@ -1972,7 +1971,7 @@ def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range):
         ########interpolate spectra
         flentry, errentry = np.zeros([2, len(wv_range)])
         mask = np.array([spec.gal_wv_rf[0] < U < spec.gal_wv_rf[-1] for U in wv_range])
-        Cr = np.trapz(ifl(reg), reg)
+        Cr = np.trapz(ifl(n_win), n_win)
         flentry[mask] = ifl(wv_range[mask]) / Cr
         errentry[mask] = ier(wv_range[mask]) / Cr
         flgrid.append(flentry)
@@ -2996,10 +2995,11 @@ def Get_parameters(gal_id, specz, metal, age, tau):
 
 
 class Stack(object):
-    def __init__(self, speclist, redshifts, wv_range):
+    def __init__(self, speclist, redshifts, wv_range, norm_range):
         self.speclist = speclist
         self.redshifts = redshifts
         self.wv_range = wv_range
+        self.norm_range = norm_range
 
     def Stack_normwmean(self):
         flgrid = np.zeros([len(self.speclist), len(self.wv_range)])
@@ -3018,8 +3018,7 @@ class Stack(object):
             mask = np.array([spec.gal_wv_rf[0] < U < spec.gal_wv_rf[-1] for U in self.wv_range])
             ifl = interp1d(spec.gal_wv_rf, spec.gal_fl)
             ier = interp1d(spec.gal_wv_rf, spec.gal_er)
-            reg = np.arange(4000, 4210, 1)
-            Cr = np.trapz(ifl(reg), reg)
+            Cr = np.trapz(ifl(self.norm_range), self.norm_range)
             flgrid[i][mask] = ifl(self.wv_range[mask]) / Cr
             errgrid[i][mask] = ier(self.wv_range[mask]) / Cr
         ################
@@ -3044,13 +3043,17 @@ class Stack(object):
         self.fl = stack[IDX]
         self.er = err[IDX]
 
-    def Stack_normwmean_model(self, bfmetal, bfage, tau):
+    def Stack_normwmean_model(self, bfmetal, bfage, tau, bftau = None):
         self.bfmetal = bfmetal
         self.bfage = bfage
 
-        self.Highest_likelihood_model_mlist(self.bfmetal,bfage,tau)
+        if bftau == None:
+            self.Highest_likelihood_model_mlist(self.bfmetal,bfage,tau)
+        else:
+            self.bftau = bftau
 
-        mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, self.bfmetal, self.bfage, self.bftau, self.wv)
+        mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, self.bfmetal, self.bfage,
+                                         self.bftau, self.wv, self.norm_range)
 
         self.mwv = mwv
         self.mfl = mfl
@@ -3059,12 +3062,14 @@ class Stack(object):
 
         chi = []
         for i in range(len(tau)):
-            mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, bfmetal, bfage, tau[i], self.wv)
+            mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, bfmetal, bfage,
+                                             tau[i], self.wv, self.norm_range)
             chi.append(Identify_stack(self.fl, self.er, mfl))
 
         print [bfmetal, bfage, tau[np.argmin(chi)]]
 
         self.bftau = tau[np.argmin(chi)]
+
 
 class Galaxy_ids(object):
     def __init__(self, masslist):

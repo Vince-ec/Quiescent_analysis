@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from spec_id import Stack,Median_w_Error
+from spec_id import Stack,Median_w_Error,Gen_spec
 import matplotlib.pyplot as plt
 from vtl.Readfile import Readfile
 from glob import glob
@@ -27,9 +27,9 @@ hzDB = galDB.query('1.3 < hi_res_specz')
 PZ = np.ones(len(metal))
 PT= np.ones(len(age))
 
-for i in lzDB.index:
-    z, pz = np.load('../chidat/%s_Z_pos.npy' % lzDB['gids'][i])
-    t, pt = np.load('../chidat/%s_t_pos.npy' % lzDB['gids'][i])
+for i in hzDB.index:
+    z, pz = np.load('../chidat/%s_Z_pos.npy' % hzDB['gids'][i])
+    t, pt = np.load('../chidat/%s_t_pos.npy' % hzDB['gids'][i])
     PZ = PZ * pz
     PT = PT * pt
 
@@ -42,14 +42,11 @@ PT /= CT
 Zmed, Zler, Zher = Median_w_Error(PZ, metal)
 tmed, tler, ther = Median_w_Error(PT, age)
 
-gids = np.array(lzDB['gids'])
-specz = np.array(lzDB['hi_res_specz'])
-
-lzstack = Stack(gids,specz,np.arange(3500,6000,10))
-lzstack.Stack_normwmean()
-lzstack.Stack_normwmean_model(Zmed,tmed,tau)
+hzstack = Stack(hzDB['gids'].values,hzDB['hi_res_specz'].values,np.arange(3400,5300,10),np.arange(3450,4050,1))
+hzstack.Stack_normwmean()
+hzstack.Stack_normwmean_model(Zmed,tmed,tau,bftau=8.7)
 
 plt.figure(figsize=[12,5])
-plt.errorbar(Stack.wv,Stack.fl,Stack.er,fmt='o',ms=5)
-plt.plot(Stack.mwv,Stack.mfl)
+plt.errorbar(hzstack.wv,hzstack.fl,hzstack.er,fmt='o',ms=5)
+plt.plot(hzstack.mwv,hzstack.mfl)
 plt.show()
