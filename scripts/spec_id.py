@@ -195,6 +195,35 @@ def Error(p, y):
     return lerr, herr
 
 
+def Median_w_Error(Pofx, x):
+    iP = interp1d(x, Pofx)
+    ix = np.linspace(x[0], x[-1], 500)
+
+    lerr = 0
+    herr = 0
+
+    for i in range(len(ix)):
+        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
+        if lerr == 0:
+            if e >= .16:
+                lerr = ix[i]
+        if herr == 0:
+            if e >= .84:
+                herr = ix[i]
+                break
+
+    med = 0
+
+    for i in range(len(x)):
+        e = np.trapz(Pofx[0:i + 1], x[0:i + 1])
+        if med == 0:
+            if e >= .5:
+                med = x[i]
+                break
+
+    return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
+
+
 def Scale_model(D, sig, M):
     C = np.sum(((D * M) / sig ** 2)) / np.sum((M ** 2 / sig ** 2))
     return C
@@ -884,6 +913,17 @@ class Gen_spec(object):
         C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
 
         self.fl = C * adj_ifl
+
+
+def Median_model(galaxy, rshift, bfmetal, bfage, tau):
+    spec = Gen_spec(galaxy,rshift)
+
+    chi = []
+    for i in range(len(tau)):
+        spec.Sim_spec(bfmetal, bfage, tau[i])
+        chi.append(Identify_stack(spec.gal_fl, spec.gal_er, spec.fl))
+
+    return tau[np.argmin(chi)]
 
 
 def Single_gal_fit_full(metal, age, tau, specz, galaxy, name):
@@ -1916,30 +1956,24 @@ def Stack_spec_normwmean(spec, redshifts, wv):
     return wv[IDX], stack[IDX], err[IDX]
 
 
-def Stack_model_normwmean(speclist, modellist, redshifts, wv_range):
+def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range):
     flgrid, errgrid = [[], []]
     reg = np.arange(4000, 4210, 1)
 
     for i in range(len(speclist)):
         #######read in spectra
-        wave, flux, error = np.load(speclist[i])
-        wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
-
-        wave = wave / (1 + redshifts[i])
+        spec = Gen_spec(speclist[i],redshifts[i])
 
         #######read in corresponding model, and interpolate flux
-        W, F, = np.load(modellist[i])
-        ifl = interp1d(W / (1 + redshifts[i]), F)
-        ier = interp1d(wave, error)
-
-        #######scale the model
-        C = Scale_model(flux, error, ifl(wave))
+        spec.Sim_spec(bfmetal,bfage,bftau)
+        ifl = interp1d(spec.gal_wv_rf, spec.fl)
+        ier = interp1d(spec.gal_wv_rf, spec.gal_er)
 
         ########interpolate spectra
         flentry, errentry = np.zeros([2, len(wv_range)])
-        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
-        Cr = np.trapz(ifl(reg) * C, reg)
-        flentry[mask] = ifl(wv_range[mask]) * C / Cr
+        mask = np.array([spec.gal_wv_rf[0] < U < spec.gal_wv_rf[-1] for U in wv_range])
+        Cr = np.trapz(ifl(reg), reg)
+        flentry[mask] = ifl(wv_range[mask]) / Cr
         errentry[mask] = ier(wv_range[mask]) / Cr
         flgrid.append(flentry)
         errgrid.append(errentry)
@@ -2906,30 +2940,6 @@ def B_factor(input_chi_file, tau, metal, age):
     return C
 
 
-def Highest_likelihood_model_rfv(galaxy, speclist, rshift, RF_v, bfmetal, bfage, tau, wv_range):
-    wv, fl, er = Stack_spec_normwmean_rfv(speclist, rshift, RF_v, wv_range)
-
-    chi = []
-    for i in range(len(tau)):
-        mlist = Make_model_list(galaxy, bfmetal, bfage, tau[i], rshift)
-        mwv, mfl = Stack_model_normwmean_rfv(speclist, mlist, rshift, RF_v, wv_range)
-        chi.append(Identify_stack(fl, er, mfl))
-
-    return bfmetal, bfage, tau[np.argmin(chi)]
-
-
-def Highest_likelihood_model(galaxy, speclist, rshift, bfmetal, bfage, tau, wv_range):
-    wv, fl, er = Stack_spec_normwmean(speclist, rshift, wv_range)
-
-    chi = []
-    for i in range(len(tau)):
-        mlist = Make_model_list(galaxy, bfmetal, bfage, tau[i], rshift)
-        mwv, mfl = Stack_model_normwmean(speclist, mlist, rshift, wv_range)
-        chi.append(Identify_stack(fl, er, mfl))
-
-    return bfmetal, bfage, tau[np.argmin(chi)]
-
-
 def Get_parameters(gal_id, specz, metal, age, tau):
     Pr, bfage, bfmetal = Analyze_Stack_avgage_cont_feat_gal_age_correct(
         '../chidat/%s_apr6_galfit_cont_chidata.fits' % gal_id,
@@ -2995,38 +3005,19 @@ class Stack(object):
         flgrid = np.zeros([len(self.speclist), len(self.wv_range)])
         errgrid = np.zeros([len(self.speclist), len(self.wv_range)])
         for i in range(len(self.speclist)):
-            wave, flux, error = np.load(self.speclist[i])
+            spec = Gen_spec(self.speclist[i], self.redshifts[i])
 
-            wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
-
-            if self.speclist[i] == '../spec_stacks_jan24/n21156_stack.npy':
+            if self.speclist[i] == 'n21156' or self.speclist[i] == 's39170' or self.speclist[i] == 'n34694':
                 IDer = []
-                for ii in range(len(wave)):
-                    if 4855 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
+                for ii in range(len(spec.gal_wv_rf)):
+                    if 4855 <= spec.gal_wv_rf[ii] <= 4880 :
                         IDer.append(ii)
-                error[IDer] = 1E8
-                flux[IDer] = 0
+                spec.gal_er[IDer] = 1E8
+                spec.gal_fl[IDer] = 0
 
-            if self.speclist[i] == '../spec_stacks_jan24/s39170_stack.npy':
-                IDer = []
-                for ii in range(len(wave)):
-                    if 4860 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
-                        IDer.append(ii)
-                error[IDer] = 1E8
-                flux[IDer] = 0
-
-            if self.speclist[i] == '../spec_stacks_jan24/n34694_stack.npy':
-                IDer = []
-                for ii in range(len(wave)):
-                    if 4860 * (1 + self.redshifts[i]) <= wave[ii] <= 4880 * (1 + self.redshifts[i]):
-                        IDer.append(ii)
-                error[IDer] = 1E8
-                flux[IDer] = 0
-
-            wave /= (1 + self.redshifts[i])
-            mask = np.array([wave[0] < U < wave[-1] for U in self.wv_range])
-            ifl = interp1d(wave, flux)
-            ier = interp1d(wave, error)
+            mask = np.array([spec.gal_wv_rf[0] < U < spec.gal_wv_rf[-1] for U in self.wv_range])
+            ifl = interp1d(spec.gal_wv_rf, spec.gal_fl)
+            ier = interp1d(spec.gal_wv_rf, spec.gal_er)
             reg = np.arange(4000, 4210, 1)
             Cr = np.trapz(ifl(reg), reg)
             flgrid[i][mask] = ifl(self.wv_range[mask]) / Cr
@@ -3053,59 +3044,27 @@ class Stack(object):
         self.fl = stack[IDX]
         self.er = err[IDX]
 
-    def Stack_normwmean_model(self, modellist):
-        self.modellist = modellist
+    def Stack_normwmean_model(self, bfmetal, bfage, tau):
+        self.bfmetal = bfmetal
+        self.bfage = bfage
 
-        flgrid, errgrid = [[], []]
-        reg = np.arange(4000, 4210, 1)
+        self.Highest_likelihood_model_mlist(self.bfmetal,bfage,tau)
 
-        for i in range(len(self.speclist)):
-            #######read in spectra
-            wave, flux, error = np.load(self.speclist[i])
-            wave, flux, error = np.array([wave[wave <= 11100], flux[wave <= 11100], error[wave <= 11100]])
+        mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, self.bfmetal, self.bfage, self.bftau, self.wv)
 
-            wave = wave / (1 + self.redshifts[i])
+        self.mwv = mwv
+        self.mfl = mfl
 
-            #######read in corresponding model, and interpolate flux
-            W, F, = np.load(self.modellist[i])
-            ifl = interp1d(W / (1 + self.redshifts[i]), F)
-            ier = interp1d(wave, error)
-
-            #######scale the model
-            C = Scale_model(flux, error, ifl(wave))
-
-            ########interpolate spectra
-            flentry, errentry = np.zeros([2, len(self.wv_range)])
-            mask = np.array([wave[0] < U < wave[-1] for U in self.wv_range])
-            Cr = np.trapz(ifl(reg) * C, reg)
-            flentry[mask] = ifl(self.wv_range[mask]) * C / Cr
-            errentry[mask] = ier(self.wv_range[mask]) / Cr
-            flgrid.append(flentry)
-            errgrid.append(errentry)
-
-        weigrid = np.array(errgrid).T ** (-2)
-        infmask = np.isinf(weigrid)
-        weigrid[infmask] = 0
-        ################
-
-        stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid, axis=1)
-
-        self.mwv = self.wv_range
-        self.mfl = stack
-
-    def Highest_likelihood_model_mlist(self, galaxy, bfmetal, bfage, tau):
-        self.galaxy = galaxy
+    def Highest_likelihood_model_mlist(self, bfmetal, bfage, tau):
 
         chi = []
         for i in range(len(tau)):
-            mlist = Make_model_list(self.galaxy, bfmetal, bfage, tau[i], self.redshifts)
-            mwv, mfl = Stack_model_normwmean(self.speclist, mlist, self.redshifts, self.wv)
+            mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, bfmetal, bfage, tau[i], self.wv)
             chi.append(Identify_stack(self.fl, self.er, mfl))
 
         print [bfmetal, bfage, tau[np.argmin(chi)]]
 
-        self.mlist = Make_model_list(self.galaxy, bfmetal, bfage, tau[np.argmin(chi)], self.redshifts)
-
+        self.bftau = tau[np.argmin(chi)]
 
 class Galaxy_ids(object):
     def __init__(self, masslist):
