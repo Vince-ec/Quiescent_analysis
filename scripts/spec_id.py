@@ -914,6 +914,18 @@ class Gen_spec(object):
 
         self.fl = C * adj_ifl
 
+    def Median_spec(self, metal, age, tau_array):
+
+        chi = []
+        for i in range(len(tau_array)):
+            self.Sim_spec(metal, age, tau_array[i])
+            chi.append(Identify_stack(self.gal_fl, self.gal_er, self.fl))
+
+
+        self.bfmetal = metal
+        self.bfage = age
+        self.bftau = tau_array[np.argmin(chi)]
+        self.Sim_spec(metal, age, tau_array[np.argmin(chi)])
 
 def Median_model(galaxy, rshift, bfmetal, bfage, tau):
     spec = Gen_spec(galaxy,rshift)
@@ -1668,12 +1680,12 @@ class Galaxy_set(object):
                     plt.figure(figsize=[15, 10])
                     for i in range(len(self.one_d_list)):
                         wv, fl, er = Get_flux(self.one_d_list[i])
-                        IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11500]
+                        IDX = [U for U in range(len(wv)) if 7700 <= wv[U] <= 11750]
                         plt.subplot(11 + i + len(self.one_d_list) * 100)
                         plt.plot(wv[IDX], fl[IDX])
                         plt.plot(wv[IDX], er[IDX])
                         plt.ylim(min(fl[IDX]), max(fl[IDX]))
-                        plt.xlim(7800, 11500)
+                        plt.xlim(7800, 11750)
                     plt.show()
 
                 if len(self.one_d_list) > 10:
