@@ -18,7 +18,7 @@ gal_num = 48
 print 'Current Index = %s' % gal_num
 galaxy = all_g_gals[gal_num]
 gal_set = Galaxy_set(galaxy)
-gal_set.Display_spec(override_quality=True)
+gal_set.Display_spec(override_quality=False)
 
 # """Stack Galaxy"""
 gal_set.Get_stack_info()
@@ -44,5 +44,5 @@ if os.path.isdir('../../../../vestrada'):
 else:
     n_dir = '../../../../../Volumes/Vince_homedrive/Extractions/Quiescent_galaxies/%s' % galaxy
 
-# if gal_set.one_d_list.size > 0:
-    # np.save(n_dir + '/%s_stack' % (galaxy),[gal_set.wv,gal_set.fl,gal_set.er])
+if gal_set.one_d_list.size > 0:
+    np.save(n_dir + '/%s_stack' % (galaxy),[gal_set.wv,gal_set.fl,gal_set.er])
