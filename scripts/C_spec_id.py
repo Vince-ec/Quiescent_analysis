@@ -188,7 +188,7 @@ def Specz_fit(galaxy, metal, age, rshift, name):
 #####GALAXY FIT
 
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, pad=100):
+    def __init__(self, galaxy_id, redshift, minwv = 7900, maxwv = 11300, pad=100):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.pad = pad
@@ -213,7 +213,7 @@ class Gen_spec(object):
             np.load('../../../../fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../../../../fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
-        IDX = [U for U in range(len(gal_wv)) if 7900 <= gal_wv[U] <= 11300]
+        IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
         self.gal_wv = gal_wv[IDX]
@@ -271,9 +271,9 @@ class Gen_spec(object):
         self.fl = C * adj_ifl
 
 
-def Single_gal_fit_full(metal, age, tau, specz, galaxy, name):
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, min_wv = 7900, max_wv = 11300):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy,specz)
+    spec = Gen_spec(galaxy, specz, minwv = min_wv, maxwv = max_wv)
 
     if galaxy == 'n21156' or galaxy == 's39170' or galaxy == 'n34694' or galaxy == 's45792':
         IDer = []
