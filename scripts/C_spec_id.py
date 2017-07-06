@@ -571,8 +571,8 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=25
         for ii in range(len(age)):
             for iii in range(len(tau)):
                 spec.Sim_spec(metal[i], age[ii], tau[iii])
-                mfl_f[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.fl[IDF]
-                mfl_c[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.fl[IDC]
+                mfl_f[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDF]
+                mfl_c[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDC]
 
     convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
                         9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])

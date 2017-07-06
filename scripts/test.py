@@ -1,52 +1,8 @@
+from spec_id import MC_fit
 import numpy as np
-import pandas as pd
-from spec_id import Stack,Median_w_Error,Gen_spec
-import matplotlib.pyplot as plt
-from vtl.Readfile import Readfile
-from glob import glob
-from astropy.io import fits, ascii
-from astropy.table import Table
-from scipy.interpolate import interp1d
-from time import time
-import seaborn as sea
-sea.set(style='white')
-sea.set(style='ticks')
-sea.set_style({"xtick.direction": "in","ytick.direction": "in"})
-colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=True)
 
-galDB = pd.read_pickle('../data/sgal_param_DB.pkl')
-metal=np.arange(0.002,0.031,0.001)
-age=np.arange(.5,6.1,.1)
-tau=[0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23, 9.26, 9.28,
-     9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48]
+metal=np.array([0.015,0.018,0.02,.025])
+age=np.array([1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4])
+tau=[0,8.0, 8.3, 8.48, 8.6, 8.7]
 
-lzDB = galDB.query('hi_res_specz < 1.16')
-mzDB = galDB.query('1.16 < hi_res_specz < 1.3')
-hzDB = galDB.query('1.3 < hi_res_specz')
-
-PZ = np.ones(len(metal))
-PT= np.ones(len(age))
-
-for i in hzDB.index:
-    z, pz = np.load('../chidat/%s_Z_pos.npy' % hzDB['gids'][i])
-    t, pt = np.load('../chidat/%s_t_pos.npy' % hzDB['gids'][i])
-    PZ = PZ * pz
-    PT = PT * pt
-
-CZ = np.trapz(PZ, metal)
-CT = np.trapz(PT, age)
-
-PZ /= CZ
-PT /= CT
-
-Zmed, Zler, Zher = Median_w_Error(PZ, metal)
-tmed, tler, ther = Median_w_Error(PT, age)
-
-hzstack = Stack(hzDB['gids'].values,hzDB['hi_res_specz'].values,np.arange(3400,5300,10),np.arange(3450,4050,1))
-hzstack.Stack_normwmean()
-hzstack.Stack_normwmean_model(Zmed,tmed,tau,bftau=8.7)
-
-plt.figure(figsize=[12,5])
-plt.errorbar(hzstack.wv,hzstack.fl,hzstack.er,fmt='o',ms=5)
-plt.plot(hzstack.mwv,hzstack.mfl)
-plt.show()
+MC_fit('s40862',metal,age,tau,0.015,3.2,8.6,1.328,'test',repeats=10)
