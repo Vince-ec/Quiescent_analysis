@@ -224,6 +224,31 @@ def Median_w_Error(Pofx, x):
     return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
 
 
+def Median_w_Error_cont(Pofx, x):
+    iP = interp1d(x, Pofx)
+    ix = np.linspace(x[0], x[-1], 500)
+
+    lerr = 0
+    herr = 0
+    med = 0
+
+
+    for i in range(len(ix)):
+        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
+        if lerr == 0:
+            if e >= .16:
+                lerr = ix[i]
+        if med == 0:
+            if e >= .50:
+                med = ix[i]
+        if herr == 0:
+            if e >= .84:
+                herr = ix[i]
+                break
+
+    return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
+
+
 def Scale_model(D, sig, M):
     C = np.sum(((D * M) / sig ** 2)) / np.sum((M ** 2 / sig ** 2))
     return C
