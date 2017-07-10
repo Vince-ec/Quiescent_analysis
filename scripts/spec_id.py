@@ -857,7 +857,7 @@ class Galaxy_sim(object):
 
 """Single Galaxy"""
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, pad=100):
+    def __init__(self, galaxy_id, redshift, pad=100, minwv = 7900, maxwv = 11300):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.pad = pad
@@ -881,7 +881,7 @@ class Gen_spec(object):
         gal_wv, gal_fl, gal_er = np.load('../spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../data/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
-        IDX = [U for U in range(len(gal_wv)) if 7900 <= gal_wv[U] <= 11300]
+        IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
         self.gal_wv = gal_wv[IDX]
