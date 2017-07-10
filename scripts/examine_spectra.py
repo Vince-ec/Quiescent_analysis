@@ -14,7 +14,7 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgalDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gids'])
 
-gal_num = 53
+gal_num = 48
 print 'Current Index = %s' % gal_num
 galaxy = all_g_gals[gal_num]
 gal_set = Galaxy_set(galaxy)

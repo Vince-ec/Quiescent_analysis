@@ -878,6 +878,9 @@ class Gen_spec(object):
         self.fl - output flux array of simulated spectra
         """
 
+        if self.galaxy_id == 's35774':
+            maxwv = 11100
+
         gal_wv, gal_fl, gal_er = np.load('../spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../data/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
