@@ -14,15 +14,15 @@ colmap = sea.cubehelix_palette(12, start=2, rot=.2, dark=0, light=1.1, as_cmap=T
 qgalDB = pd.read_pickle('../data/quiescent_gal_DB.pkl')
 all_g_gals = list(qgalDB[qgalDB['in_data'] == True][qgalDB['agn'] == False]['gids'])
 
-gal_num = 48
+gal_num = 53
 print 'Current Index = %s' % gal_num
 galaxy = all_g_gals[gal_num]
 gal_set = Galaxy_set(galaxy)
-gal_set.Display_spec(override_quality=False)
+gal_set.Display_spec(override_quality=True)
 
 # """Stack Galaxy"""
 gal_set.Get_stack_info()
-IDS = [U for U in range(len(gal_set.s_wv)) if 7900 < gal_set.s_wv[U] < 11300]
+IDS = [U for U in range(len(gal_set.s_wv)) if 7900 < gal_set.s_wv[U] < 11500]
 
 plt.figure(figsize=[15,5])
 plt.plot(gal_set.s_wv[IDS], gal_set.s_fl[IDS], 'r', alpha=.5)
@@ -32,7 +32,7 @@ if gal_set.one_d_list.size > 0:
 
     gal_set.Mean_stack_galaxy()
 
-    IDX = [U for U in range(len(gal_set.wv)) if 7900 < gal_set.wv[U] <11300]
+    IDX = [U for U in range(len(gal_set.wv)) if 7900 < gal_set.wv[U] <11500]
 
     plt.plot(gal_set.wv[IDX],gal_set.fl[IDX])
     plt.plot(gal_set.wv[IDX],gal_set.er[IDX])
