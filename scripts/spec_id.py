@@ -971,10 +971,26 @@ def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxw
     #############Read in spectra#################
     spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
-    if galaxy == 'n21156' or galaxy == 's39170' or galaxy == 'n34694' or galaxy == 's45792':
+    if galaxy == 'n21156' or galaxy == 'n38126':
         IDer = []
         for ii in range(len(spec.gal_wv_rf)):
             if 4855 <= spec.gal_wv_rf[ii] <= 4880:
+                IDer.append(ii)
+        spec.gal_er[IDer] = 1E8
+        spec.gal_fl[IDer] = 0
+
+    if galaxy == 's47677' or galaxy == 'n14713':
+        IDer = []
+        for ii in range(len(spec.gal_wv_rf)):
+            if 4845 <= spec.gal_wv_rf[ii] <= 4863:
+                IDer.append(ii)
+        spec.gal_er[IDer] = 1E8
+        spec.gal_fl[IDer] = 0
+
+    if galaxy == 's39170':
+        IDer = []
+        for ii in range(len(spec.gal_wv_rf)):
+            if 4865 <= spec.gal_wv_rf[ii] <= 4885:
                 IDer.append(ii)
         spec.gal_er[IDer] = 1E8
         spec.gal_fl[IDer] = 0

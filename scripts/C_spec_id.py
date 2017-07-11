@@ -213,6 +213,9 @@ class Gen_spec(object):
             np.load('../../../../fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../../../../fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
+        if self.galaxy_id == 's35774':
+            maxwv = 11100
+
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
@@ -271,14 +274,30 @@ class Gen_spec(object):
         self.fl = C * adj_ifl
 
 
-def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, min_wv = 7900, max_wv = 11300):
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11300):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy, specz, minwv = min_wv, maxwv = max_wv)
+    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
-    if galaxy == 'n21156' or galaxy == 's39170' or galaxy == 'n34694' or galaxy == 's45792':
+    if galaxy == 'n21156' or galaxy == 'n38126':
         IDer = []
         for ii in range(len(spec.gal_wv_rf)):
             if 4855 <= spec.gal_wv_rf[ii] <= 4880:
+                IDer.append(ii)
+        spec.gal_er[IDer] = 1E8
+        spec.gal_fl[IDer] = 0
+
+    if galaxy == 's47677' or galaxy == 'n14713':
+        IDer = []
+        for ii in range(len(spec.gal_wv_rf)):
+            if 4845 <= spec.gal_wv_rf[ii] <= 4863:
+                IDer.append(ii)
+        spec.gal_er[IDer] = 1E8
+        spec.gal_fl[IDer] = 0
+
+    if galaxy == 's39170':
+        IDer = []
+        for ii in range(len(spec.gal_wv_rf)):
+            if 4865 <= spec.gal_wv_rf[ii] <= 4885:
                 IDer.append(ii)
         spec.gal_er[IDer] = 1E8
         spec.gal_fl[IDer] = 0
@@ -449,9 +468,6 @@ class Gen_sim(object):
         gal_wv, gal_fl, gal_er = \
             np.load('../../../../fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../../../../fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
-
-        if self.galaxy_id == 's35774':
-            maxwv = 11100
 
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
