@@ -967,9 +967,9 @@ def Median_model(galaxy, rshift, bfmetal, bfage, tau):
     return tau[np.argmin(chi)]
 
 
-def Single_gal_fit_full(metal, age, tau, specz, galaxy, name):
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11300):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy,specz)
+    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
     if galaxy == 'n21156' or galaxy == 's39170' or galaxy == 'n34694' or galaxy == 's45792':
         IDer = []

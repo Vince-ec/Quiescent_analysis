@@ -412,7 +412,7 @@ def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
 #####MC FIT
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, redshift, metal, age, tau, pad=100):
+    def __init__(self, galaxy_id, redshift, metal, age, tau,pad = 100, minwv = 7900, maxwv = 11300):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.metal = metal
@@ -450,7 +450,10 @@ class Gen_sim(object):
             np.load('../../../../fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
         self.flt_input = '../../../../fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
-        IDX = [U for U in range(len(gal_wv)) if 7900 <= gal_wv[U] <= 11300]
+        if self.galaxy_id == 's35774':
+            maxwv = 11100
+
+        IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
         self.gal_wv = gal_wv[IDX]
