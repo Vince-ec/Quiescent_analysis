@@ -14,4 +14,4 @@ age=np.arange(.5,6.1,.1)
 # tau=[0,8.0, 8.3, 8.48, 8.6, 8.7]
 tau=[0,8.0]
 
-MC_fit_methods_test_2('n21156',metal,age,tau,0.019,3.5,0,1.251,repeats=1000)
+MC_fit_methods_test_2('n21156',metal,age,tau,0.019,3.5,0,1.251,repeats=100)

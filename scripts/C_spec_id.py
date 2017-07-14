@@ -615,12 +615,13 @@ class Gen_sim(object):
 
 def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
            age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
-    tPZ=np.ones(len(metal))
-    tPZnc=np.ones(len(metal))
-    tPZdf=np.ones(len(metal))
-    tPt=np.ones(len(age))
-    tPtnc=np.ones(len(age))
-    tPtdf=np.ones(len(age))
+    bfm=[]
+    bfmnc=[]
+    bfmdf=[]
+    bfa=[]
+    bfanc=[]
+    bfadf=[]
+
 
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
     spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
@@ -722,10 +723,10 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
         fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
         P = np.trapz(prob, ultau, axis=2)
-        C = np.trapz(np.trapz(P, age, axis=1), metal)
+        # C = np.trapz(np.trapz(P, age, axis=1), metal)
 
         Pnc = np.trapz(ncprob, ultau, axis=2)
-        Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
+        # Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
 
         Pc = np.trapz(cprob, ultau, axis=2)
         Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
@@ -738,40 +739,25 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
         comb_prob = cprob / Cc * fprob / Cf
 
         df_post = np.trapz(comb_prob, ultau, axis=2)
-        C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
-        df_post /= C0
+        # C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
+        # df_post /= C0
 
-        #### Get Z and t posteriors
-        PZ = np.trapz(P / C, age, axis=1)
-        Pt = np.trapz(P.T / C, metal, axis=1)
+        ids = np.argwhere(P == np.max(P))
+        bfm.append(metal[ids[0][0]])
+        bfa.append(age[ids[0][i]])
 
-        PZnc = np.trapz(Pnc / Cnc, age, axis=1)
-        Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
+        ids = np.argwhere(Pnc == np.max(Pnc))
+        bfmnc.append(metal[ids[0][0]])
+        bfanc.append(age[ids[0][i]])
 
-        PZdf = np.trapz(df_post, age, axis=1)
-        Ptdf = np.trapz(df_post.T, metal, axis=1)
+        ids = np.argwhere(df_post == np.max(df_post))
+        bfmdf.append(metal[ids[0][0]])
+        bfadf.append(age[ids[0][i]])
 
-        tPZ = tPZ * PZ
-        tPZnc = tPZnc * PZnc
-        tPZdf = tPZdf * PZdf
 
-        tPt = tPt * Pt
-        tPtnc = tPtnc * Ptnc
-        tPtdf = tPtdf * Ptdf
-
-    tPZ /= np.trapz(tPZ, metal)
-    tPZnc /= np.trapz(tPZnc, metal)
-    tPZdf /= np.trapz(tPZdf, metal)
-    tPt /= np.trapz(tPt, age)
-    tPtnc /= np.trapz(tPtnc, age)
-    tPtdf /= np.trapz(tPtdf, age)
-
-    np.save('/home/vestrada78840/mcerr/' + name + '_Z_', [metal, tPZ])
-    np.save('/home/vestrada78840/mcerr/' + name + '_t_', [age, tPt])
-    np.save('/home/vestrada78840/mcerr/' + name + '_Z_NC', [metal, tPZnc])
-    np.save('/home/vestrada78840/mcerr/' + name + '_t_NC', [age, tPtnc])
-    np.save('/home/vestrada78840/mcerr/' + name + '_Z_DF', [metal, tPZdf])
-    np.save('/home/vestrada78840/mcerr/' + name + '_t_DF', [age, tPtdf])
+    np.save('/home/vestrada78840/mcerr/' + name, [bfm, bfa])
+    np.save('/home/vestrada78840/mcerr/' + name + 'NC', [bfmnc, bfanc])
+    np.save('/home/vestrada78840/mcerr/' + name + 'DF', [bfmdf, bfadf])
 
     return
 

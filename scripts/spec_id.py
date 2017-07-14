@@ -3290,6 +3290,13 @@ def MC_fit_methods_test(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, min
 def MC_fit_methods_test_2(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, minwv=7900, maxwv=11400, repeats=1,
            age_conv='../data/tau_scale_ntau.dat'):
 
+    bfm=[]
+    bfmnc=[]
+    bfmdf=[]
+    bfa=[]
+    bfanc=[]
+    bfadf=[]
+
     tPZ=np.ones(len(metal))
     tPZnc=np.ones(len(metal))
     tPZdf=np.ones(len(metal))
@@ -3420,29 +3427,64 @@ def MC_fit_methods_test_2(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, m
         C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
         df_post /= C0
 
-        #### Get Z and t posteriors
-        PZ = np.trapz(P / C, age, axis=1)
-        Pt = np.trapz(P.T / C, metal, axis=1)
+        ids = np.argwhere(P == np.max(P))
+        bfm.append(metal[ids[0][0]])
+        bfa.append(age[ids[0][i]])
+        ids = np.argwhere(Pnc == np.max(Pnc))
+        bfmnc.append(metal[ids[0][0]])
+        bfanc.append(age[ids[0][i]])
+        ids = np.argwhere(df_post == np.max(df_post))
+        bfmdf.append(metal[ids[0][0]])
+        bfadf.append(age[ids[0][i]])
 
-        PZnc = np.trapz(Pnc / Cnc, age, axis=1)
-        Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
+    plt.figure()
+    plt.subplot(131)
+    plt.scatter(bfm,bfa)
+    plt.scatter(sim_m,sim_a)
+    plt.axis([0.002,0.03,0.5,6])
 
-        PZdf = np.trapz(df_post, age, axis=1)
-        Ptdf = np.trapz(df_post.T, metal, axis=1)
+    plt.subplot(132)
+    plt.scatter(bfmnc,bfanc)
+    plt.scatter(sim_m,sim_a)
+    plt.axis([0.002,0.03,0.5,6])
 
-        tPZ=tPZ * PZ
-        tPZnc=tPZnc * PZnc
-        tPZdf=tPZdf * PZdf
 
-        tPt=tPt * Pt
-        tPtnc=tPtnc * Ptnc
-        tPtdf=tPtdf * Ptdf
+    plt.subplot(133)
+    plt.scatter(bfmdf,bfadf)
+    plt.scatter(sim_m,sim_a)
+    plt.axis([0.002,0.03,0.5,6])
 
-    tPZ /= np.trapz(tPZ,metal)
-    tPZnc /= np.trapz(tPZnc,metal)
-    tPZdf /= np.trapz(tPZdf,metal)
-    tPt /= np.trapz(tPt,age)
-    tPtnc /= np.trapz(tPtnc,age)
-    tPtdf /= np.trapz(tPtdf,age)
+
+    plt.show()
+
+
+
+        # #### Get Z and t posteriors
+        # PZ = np.trapz(P / C, age, axis=1)
+        # Pt = np.trapz(P.T / C, metal, axis=1)
+        #
+        # PZnc = np.trapz(Pnc / Cnc, age, axis=1)
+        # Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
+        #
+        # PZdf = np.trapz(df_post, age, axis=1)
+        # Ptdf = np.trapz(df_post.T, metal, axis=1)
+        #
+        # tPZ=tPZ * PZ
+        # tPZnc=tPZnc * PZnc
+        # tPZdf=tPZdf * PZdf
+        #
+        # tPt=tPt * Pt
+        # tPtnc=tPtnc * Ptnc
+        # tPtdf=tPtdf * Ptdf
+
+
+
+
+    # tPZ /= np.trapz(tPZ,metal)
+    # tPZnc /= np.trapz(tPZnc,metal)
+    # tPZdf /= np.trapz(tPZdf,metal)
+    # tPt /= np.trapz(tPt,age)
+    # tPtnc /= np.trapz(tPtnc,age)
+    # tPtdf /= np.trapz(tPtdf,age)
 
     return
