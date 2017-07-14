@@ -431,7 +431,8 @@ def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
 #####MC FIT
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, redshift, metal, age, tau,pad = 100, minwv = 7900, maxwv = 11300):
+    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100):
+        import pysynphot as S
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.metal = metal
@@ -503,7 +504,8 @@ class Gen_sim(object):
 
         ## create basis model for sim
 
-        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (self.metal, self.age, self.tau)
+        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' \
+                % (self.metal, self.age, self.tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -527,10 +529,58 @@ class Gen_sim(object):
 
         self.fl = C * adj_ifl
 
+        m2r = [3175, 3280, 3340, 3515, 3550, 3650, 3710, 3770, 3800, 3850,
+               3910, 4030, 4080, 4125, 4250, 4385, 4515, 4570, 4810, 4910, 4975, 5055, 5110, 5285]
+
+        Mask = np.zeros(len(self.gal_wv_rf))
+        for i in range(len(Mask)):
+            if m2r[0] <= self.gal_wv_rf[i] <= m2r[1]:
+                Mask[i] = 1
+            if m2r[2] <= self.gal_wv_rf[i] <= m2r[3]:
+                Mask[i] = 1
+            if m2r[4] <= self.gal_wv_rf[i] <= m2r[5]:
+                Mask[i] = 1
+            if m2r[6] <= self.gal_wv_rf[i] <= m2r[7]:
+                Mask[i] = 1
+            if m2r[8] <= self.gal_wv_rf[i] <= m2r[9]:
+                Mask[i] = 1
+            if m2r[8] <= self.gal_wv_rf[i] <= m2r[9]:
+                Mask[i] = 1
+            if m2r[10] < self.gal_wv_rf[i] <= m2r[11]:
+                Mask[i] = 1
+            if m2r[12] <= self.gal_wv_rf[i] <= m2r[13]:
+                Mask[i] = 1
+            if m2r[14] <= self.gal_wv_rf[i] <= m2r[15]:
+                Mask[i] = 1
+            if m2r[16] <= self.gal_wv_rf[i] <= m2r[17]:
+                Mask[i] = 1
+            if m2r[18] <= self.gal_wv_rf[i] <= m2r[19]:
+                Mask[i] = 1
+            if m2r[20] <= self.gal_wv_rf[i] <= m2r[21]:
+                Mask[i] = 1
+            if m2r[22] <= self.gal_wv_rf[i] <= m2r[23]:
+                Mask[i] = 1
+
+        self.maskw = np.ma.masked_array(self.gal_wv_rf, Mask)
+
+        params = np.ma.polyfit(self.maskw, self.fl, 3, w=1 / self.gal_er ** 2)
+        C0 = np.polyval(params,self.gal_wv_rf)
+
+        self.nc_fl = self.fl / C0
+        self.nc_er = self.gal_er / C0
+
+
     def Perturb_flux(self):
-        self.flx_err = self.fl + np.random.normal(0, self.gal_er)
+        self.flx_err = np.abs(self.fl + np.random.normal(0, self.gal_er))
+
+
+    def Perturb_flux_nc(self):
+        self.nc_flx_err = np.abs(self.nc_fl + np.random.normal(0, self.nc_er))
+
 
     def Sim_spec(self, metal, age, tau):
+        import pysynphot as S
+
         model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
 
         wave, fl = np.load(model)
@@ -556,7 +606,177 @@ class Gen_sim(object):
         self.mfl = C * adj_ifl
 
 
-def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=250,
+    def RM_sim_spec_cont(self):
+        params = np.ma.polyfit(self.maskw, self.mfl, 3)
+        C0 = np.polyval(params,self.gal_wv_rf)
+
+        self.nc_mfl = self.mfl / C0
+
+
+def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
+           age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
+    tPZ=np.ones(len(metal))
+    tPZnc=np.ones(len(metal))
+    tPZdf=np.ones(len(metal))
+    tPt=np.ones(len(age))
+    tPtnc=np.ones(len(age))
+    tPtdf=np.ones(len(age))
+
+    ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
+    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
+
+    ###############Get indicies
+    IDF = []
+    for i in range(len(spec.gal_wv_rf)):
+        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 4080 <= spec.gal_wv_rf[i] <= 4125 or 4250 <= spec.gal_wv_rf[i] <= 4385 \
+                or 4810 <= spec.gal_wv_rf[i] <= 4910 or 5110 <= spec.gal_wv_rf[i] <= 5285:
+            IDF.append(i)
+
+    IDC = []
+    for i in range(len(spec.gal_wv_rf)):
+        if spec.gal_wv_rf[0] <= spec.gal_wv_rf[i] <= 3800 or 3850 <= spec.gal_wv_rf[i] <= 3910 or 4030 <= \
+                spec.gal_wv_rf[i] <= 4080 or 4125 <= spec.gal_wv_rf[i] <= 4250 or 4385 <= spec.gal_wv_rf[i] <= 4515 or \
+                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= \
+                spec.gal_wv_rf[i] <= 5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
+            IDC.append(i)
+
+    ###############Get model list
+    mfl = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
+    mfl_nc = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
+    mfl_f = np.zeros([len(metal) * len(age) * len(tau), len(IDF)])
+    mfl_c = np.zeros([len(metal) * len(age) * len(tau), len(IDC)])
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                spec.Sim_spec(metal[i], age[ii], tau[iii])
+                mfl[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl
+                mfl_f[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDF]
+                mfl_c[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDC]
+                spec.RM_sim_spec_cont()
+                mfl_nc[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.nc_mfl
+
+
+    convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 6.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    for xx in range(repeats):
+        spec.Perturb_flux()
+        spec.Perturb_flux_nc()
+        chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(
+            np.float128).T
+        NCchi = np.sum(((spec.nc_flx_err - mfl_nc) / spec.nc_er) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(
+            np.float128).T
+        Fchi = np.sum(((spec.flx_err[IDF] - mfl_f) / spec.gal_er[IDF]) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(
+            np.float128).T
+        Cchi = np.sum(((spec.flx_err[IDC] - mfl_c) / spec.gal_er[IDC]) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(
+            np.float128).T
+
+        ######## Reshape likelihood to get average age instead of age when marginalized
+        newchi = np.zeros(chi.shape)
+        newNCchi = np.zeros(NCchi.shape)
+        newCchi = np.zeros(Cchi.shape)
+        newFchi = np.zeros(Fchi.shape)
+
+        for i in range(len(Cchi)):
+            if i == 0:
+                newchi[i] = chi[i]
+                newNCchi[i] = NCchi[i]
+                newCchi[i] = Cchi[i]
+                newFchi[i] = Fchi[i]
+            else:
+                frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+                ncframe = interp2d(metal, scale[i], NCchi[i])(metal, age[:-overhead[i]])
+                newNCchi[i] = np.append(ncframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+                cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
+                newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+                fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
+                newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+        ####### Create normalize probablity marginalized over tau
+        prob = np.exp(-newchi.T.astype(np.float128) / 2)
+        ncprob = np.exp(-newNCchi.T.astype(np.float128) / 2)
+        cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
+        fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
+
+        P = np.trapz(prob, ultau, axis=2)
+        C = np.trapz(np.trapz(P, age, axis=1), metal)
+
+        Pnc = np.trapz(ncprob, ultau, axis=2)
+        Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
+
+        Pc = np.trapz(cprob, ultau, axis=2)
+        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
+
+        Pf = np.trapz(fprob, ultau, axis=2)
+        Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
+
+        ########
+
+        comb_prob = cprob / Cc * fprob / Cf
+
+        df_post = np.trapz(comb_prob, ultau, axis=2)
+        C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
+        df_post /= C0
+
+        #### Get Z and t posteriors
+        PZ = np.trapz(P / C, age, axis=1)
+        Pt = np.trapz(P.T / C, metal, axis=1)
+
+        PZnc = np.trapz(Pnc / Cnc, age, axis=1)
+        Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
+
+        PZdf = np.trapz(df_post, age, axis=1)
+        Ptdf = np.trapz(df_post.T, metal, axis=1)
+
+        tPZ = tPZ * PZ
+        tPZnc = tPZnc * PZnc
+        tPZdf = tPZdf * PZdf
+
+        tPt = tPt * Pt
+        tPtnc = tPtnc * Ptnc
+        tPtdf = tPtdf * Ptdf
+
+    tPZ /= np.trapz(tPZ, metal)
+    tPZnc /= np.trapz(tPZnc, metal)
+    tPZdf /= np.trapz(tPZdf, metal)
+    tPt /= np.trapz(tPt, age)
+    tPtnc /= np.trapz(tPtnc, age)
+    tPtdf /= np.trapz(tPtdf, age)
+
+    np.save('/home/vestrada78840/mcerr/' + name + '_Z_', [metal, tPZ])
+    np.save('/home/vestrada78840/mcerr/' + name + '_t_', [age, tPt])
+    np.save('/home/vestrada78840/mcerr/' + name + '_Z_NC', [metal, tPZnc])
+    np.save('/home/vestrada78840/mcerr/' + name + '_t_NC', [age, tPtnc])
+    np.save('/home/vestrada78840/mcerr/' + name + '_Z_DF', [metal, tPZdf])
+    np.save('/home/vestrada78840/mcerr/' + name + '_t_DF', [age, tPtdf])
+
+    return
+
+
+def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=100,
            age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
     mlist = []
     alist = []
@@ -630,7 +850,9 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=25
                 newCchi[i] = Cchi[i]
                 newFchi[i] = Fchi[i]
             else:
+                print scale[i]
                 cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
+                print cframe.shape
                 newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
                 fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
@@ -681,4 +903,3 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=25
     np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
 
     return
-

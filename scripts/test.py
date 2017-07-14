@@ -1,61 +1,17 @@
-from spec_id import MC_fit_methods
+from spec_id import Gen_sim,MC_fit_methods_test_2
 import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import seaborn as sea
 
-metal=np.array([0.015,0.018,0.02,.025])
-age=np.array([1.7,1.8,1.9,2.0,2.1,2.2,2.3,2.4])
-tau=[0,8.0, 8.3, 8.48, 8.6, 8.7]
+metal=np.arange(0.002,0.031,0.001)
+age=np.arange(.5,6.1,.1)
+# tau=[0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2, 9.23, 9.26, 9.28,
+#      9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48]
+#
+# metal=[0.005,0.015,0.02,0.025]
+# age=[2.5,2.6,2.7,2.8,2.9,3.0,3.1,3.2,3.3,3.4,3.5,3.6,3.7,3.8]
+# tau=[0,8.0, 8.3, 8.48, 8.6, 8.7]
+tau=[0,8.0]
 
-# MC_fit_methods('s39170',metal,age,tau,0.019,3.0,8.7,1.022,'s39170_test',maxwv=11400,repeats=50)
-
-m,a=np.load('../mcerr/s39170_test.npy')
-m_mn,a_mn=np.load('../mcerr/s39170_testmean.npy')
-mnc,anc=np.load('../mcerr/s39170_testNC.npy')
-mnc_mn,anc_mn=np.load('../mcerr/s39170_testNCmean.npy')
-mdf,adf=np.load('../mcerr/s39170_testDF.npy')
-mdf_mn,adf_mn=np.load('../mcerr/s39170_testDFmean.npy')
-
-
-sea.kdeplot(m,a)
-plt.scatter(m,a,marker='o')
-plt.title('full fit')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
-sea.kdeplot(m_mn,a_mn)
-plt.scatter(m_mn,a_mn,marker='o')
-plt.title('full fit mean')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
-sea.kdeplot(mnc,anc)
-plt.scatter(mnc,anc,marker='o')
-plt.title('NC fit')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
-sea.kdeplot(mnc_mn,anc_mn)
-plt.scatter(mnc_mn,anc_mn,marker='o')
-plt.title('NC fit mean')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
-sea.kdeplot(mdf,adf)
-plt.scatter(mdf,adf,marker='o')
-plt.title('DF fit')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
-sea.kdeplot(mdf_mn,adf_mn)
-plt.scatter(mdf_mn,adf_mn,marker='o')
-plt.title('DF fit mean')
-plt.scatter(0.019,3.0,color='r')
-plt.axis([0,0.03,0,6])
-plt.show()
-
+MC_fit_methods_test_2('n21156',metal,age,tau,0.019,3.5,0,1.251,repeats=1000)
