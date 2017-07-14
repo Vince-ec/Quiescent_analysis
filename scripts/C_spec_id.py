@@ -744,15 +744,15 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
 
         ids = np.argwhere(P == np.max(P))
         bfm.append(metal[ids[0][0]])
-        bfa.append(age[ids[0][i]])
+        bfa.append(age[ids[0][1]])
 
         ids = np.argwhere(Pnc == np.max(Pnc))
         bfmnc.append(metal[ids[0][0]])
-        bfanc.append(age[ids[0][i]])
+        bfanc.append(age[ids[0][1]])
 
         ids = np.argwhere(df_post == np.max(df_post))
         bfmdf.append(metal[ids[0][0]])
-        bfadf.append(age[ids[0][i]])
+        bfadf.append(age[ids[0][1]])
 
 
     np.save('/home/vestrada78840/mcerr/' + name, [bfm, bfa])
