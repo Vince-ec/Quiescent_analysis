@@ -232,7 +232,6 @@ def Median_w_Error_cont(Pofx, x):
     herr = 0
     med = 0
 
-
     for i in range(len(ix)):
         e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
         if lerr == 0:
@@ -246,7 +245,7 @@ def Median_w_Error_cont(Pofx, x):
                 herr = ix[i]
                 break
 
-    return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
+    return med, med - lerr, herr - med
 
 
 def Scale_model(D, sig, M):
