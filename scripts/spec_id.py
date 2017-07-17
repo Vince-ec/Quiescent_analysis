@@ -537,277 +537,35 @@ def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, meta
 """Stack Fit"""
 
 
-def Stack_spec(spec, redshifts, wv):
-    flgrid = np.zeros([len(spec), len(wv)])
-    errgrid = np.zeros([len(spec), len(wv)])
-    for i in range(len(spec)):
-        wave, flux, error = np.array(Get_flux_nocont(spec[i], redshifts[i]))
-        mask = np.array([wave[0] < U < wave[-1] for U in wv])
-        ifl = interp1d(wave, flux)
-        ier = interp1d(wave, error)
-        flgrid[i][mask] = ifl(wv[mask])
-        errgrid[i][mask] = ier(wv[mask])
-    ################
-
-    flgrid = np.transpose(flgrid)
-    errgrid = np.transpose(errgrid)
-    weigrid = errgrid ** (-2)
-    infmask = np.isinf(weigrid)
-    weigrid[infmask] = 0
-    ################
-
-    stack, err = np.zeros([2, len(wv)])
-    for i in range(len(wv)):
-        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
-        err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
-    ################
-    ###take out nans
-
-    IDX = [U for U in range(len(wv)) if stack[U] > 0]
-
-    return wv[IDX], stack[IDX], err[IDX]
-
-
-def Stack_model(speclist, modellist, redshifts, wv_range):
-    flgrid = []
-    errgrid = []
+def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range, n_win):
+    flgrid, errgrid = [[], []]
 
     for i in range(len(speclist)):
-        #######read in spectra
-        wave, flux, error = np.load(speclist[i])
-        if speclist[i] == '../data/spec_stacks_jan24/s40597_stack.npy':
-            IDW = []
-            for ii in range(len(wave)):
-                if 7950 < wave[ii] < 11000:
-                    IDW.append(ii)
-
-        else:
-            IDW = []
-            for ii in range(len(wave)):
-                if 7950 < wave[ii] < 11300:
-                    IDW.append(ii)
-
-        wave, flux, error = np.array([wave[IDW], flux[IDW], error[IDW]])
-
-        wave = wave / (1 + redshifts[i])
+    #######read in spectra
+        spec = Gen_spec(speclist[i],redshifts[i])
 
         #######read in corresponding model, and interpolate flux
-        W, F = np.load(modellist[i])
-        W = W / (1 + redshifts[i])
-        iF = interp1d(W, F)(wave)
-
-        #######scale the model
-        C = Scale_model(flux, error, iF)
-        mflux = C * iF
-
-        ######divide out continuum
-        m2r = [3910, 3990, 4082, 4122, 4250, 4330, 4830, 4890, 4990, 5030]
-        Mask = np.zeros(len(wave))
-        for ii in range(len(Mask)):
-            if m2r[0] <= wave[ii] <= m2r[1]:
-                Mask[ii] = 1
-            if m2r[2] <= wave[ii] <= m2r[3]:
-                Mask[ii] = 1
-            if m2r[4] <= wave[ii] <= m2r[5]:
-                Mask[ii] = 1
-            if m2r[6] <= wave[ii] <= m2r[7]:
-                Mask[ii] = 1
-            if m2r[8] <= wave[ii] <= m2r[9]:
-                Mask[ii] = 1
-            if wave[ii] > m2r[9]:
-                break
-
-        maskw = np.ma.masked_array(wave, Mask)
-
-        coeff = np.ma.polyfit(maskw, mflux, 3, w=1 / error ** 2)
-        C0 = np.polyval(coeff, wave)
-
-        Fl = mflux / C0
-        Er = error / C0
+        spec.Sim_spec(bfmetal,bfage,bftau)
+        ifl = interp1d(spec.gal_wv_rf, spec.fl)
+        ier = interp1d(spec.gal_wv_rf, spec.gal_er)
 
         ########interpolate spectra
-        flentry = np.zeros(len(wv_range))
-        errentry = np.zeros(len(wv_range))
-        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
-        ifl = interp1d(wave, Fl)
-        ier = interp1d(wave, Er)
-        flentry[mask] = ifl(wv_range[mask])
-        errentry[mask] = ier(wv_range[mask])
+        flentry, errentry = np.zeros([2, len(wv_range)])
+        mask = np.array([spec.gal_wv_rf[0] < U < spec.gal_wv_rf[-1] for U in wv_range])
+        Cr = np.trapz(ifl(n_win), n_win)
+        flentry[mask] = ifl(wv_range[mask]) / Cr
+        errentry[mask] = ier(wv_range[mask]) / Cr
         flgrid.append(flentry)
         errgrid.append(errentry)
 
-    wv = np.array(wv_range)
-
-    flgrid = np.transpose(flgrid)
-    errgrid = np.transpose(errgrid)
-    weigrid = errgrid ** (-2)
+    weigrid = np.array(errgrid).T ** (-2)
     infmask = np.isinf(weigrid)
     weigrid[infmask] = 0
     ################
 
-    stack, err = np.zeros([2, len(wv)])
-    for i in range(len(wv)):
-        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
-    ################
+    stack = np.sum(np.array(flgrid).T * weigrid, axis=1) / np.sum(weigrid, axis=1)
 
-    return wv, stack
-
-
-def Stack_model_in_mfit(modellist, redshifts, wave_grid, flux_grid, err_grid, wv_range):
-    flgrid = []
-    errgrid = []
-
-    for i in range(len(modellist)):
-        #######read in spectra
-        wave, flux, error = np.array([wave_grid[i], flux_grid[i], err_grid[i]])
-
-        #######read in corresponding model, and interpolate flux
-        W, F = np.load(modellist[i])
-        W = W / (1 + redshifts[i])
-        iF = interp1d(W, F)(wave)
-
-        #######scale the model
-        C = Scale_model(flux, error, iF)
-        mflux = C * iF
-
-        ######divide out continuum
-        m2r = [3910, 3990, 4082, 4122, 4250, 4330, 4830, 4890, 4990, 5030]
-        Mask = np.zeros(len(wave))
-        for ii in range(len(Mask)):
-            if m2r[0] <= wave[ii] <= m2r[1]:
-                Mask[ii] = 1
-            if m2r[2] <= wave[ii] <= m2r[3]:
-                Mask[ii] = 1
-            if m2r[4] <= wave[ii] <= m2r[5]:
-                Mask[ii] = 1
-            if m2r[6] <= wave[ii] <= m2r[7]:
-                Mask[ii] = 1
-            if m2r[8] <= wave[ii] <= m2r[9]:
-                Mask[ii] = 1
-            if wave[ii] > m2r[9]:
-                break
-
-        maskw = np.ma.masked_array(wave, Mask)
-
-        coeff = np.ma.polyfit(maskw, mflux, 3, w=1 / error ** 2)
-        C0 = np.polyval(coeff, wave)
-
-        Fl = mflux / C0
-        Er = error / C0
-
-        ########interpolate spectra
-        flentry = np.zeros(len(wv_range))
-        errentry = np.zeros(len(wv_range))
-        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
-        ifl = interp1d(wave, Fl)
-        ier = interp1d(wave, Er)
-        flentry[mask] = ifl(wv_range[mask])
-        errentry[mask] = ier(wv_range[mask])
-        flgrid.append(flentry)
-        errgrid.append(errentry)
-
-    wv = np.array(wv_range)
-
-    flgrid = np.transpose(flgrid)
-    errgrid = np.transpose(errgrid)
-    weigrid = errgrid ** (-2)
-    infmask = np.isinf(weigrid)
-    weigrid[infmask] = 0
-    ################
-
-    stack, err = np.zeros([2, len(wv)])
-    for i in range(len(wv)):
-        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
-    ################
-
-    return wv, stack
-
-
-def Stack_sim_model(speclist, modellist, redshifts, wv_range):
-    flgrid = []
-    errgrid = []
-
-    for i in range(len(speclist)):
-        #######read in spectra
-        wave, flux, error = np.array(Readfile(speclist[i], 1))
-        if speclist[i] == '../data/spec_stacks_jan24/s40597_stack.dat':
-            IDW = []
-            for ii in range(len(wave)):
-                if 7950 < wave[ii] < 11000:
-                    IDW.append(ii)
-
-        else:
-            IDW = []
-            for ii in range(len(wave)):
-                if 7950 < wave[ii] < 11300:
-                    IDW.append(ii)
-
-        wave, flux, error = np.array([wave[IDW], flux[IDW], error[IDW]])
-
-        wave = wave / (1 + redshifts[i])
-
-        #######read in corresponding model, and interpolate flux
-        W, F = np.load(modellist[i])
-        W = W / (1 + redshifts[i])
-        iF = interp1d(W, F)(wave)
-
-        #######scale the model
-        C = Scale_model(flux, error, iF)
-        mflux = C * iF + np.random.normal(0, error)
-
-        ######divide out continuum
-        m2r = [3910, 3990, 4082, 4122, 4250, 4330, 4830, 4890, 4990, 5030]
-        Mask = np.zeros(len(wave))
-        for ii in range(len(Mask)):
-            if m2r[0] <= wave[ii] <= m2r[1]:
-                Mask[ii] = 1
-            if m2r[2] <= wave[ii] <= m2r[3]:
-                Mask[ii] = 1
-            if m2r[4] <= wave[ii] <= m2r[5]:
-                Mask[ii] = 1
-            if m2r[6] <= wave[ii] <= m2r[7]:
-                Mask[ii] = 1
-            if m2r[8] <= wave[ii] <= m2r[9]:
-                Mask[ii] = 1
-            if wave[ii] > m2r[9]:
-                break
-
-        maskw = np.ma.masked_array(wave, Mask)
-
-        coeff = np.ma.polyfit(maskw, mflux, 3, w=1 / error ** 2)
-        C0 = np.polyval(coeff, wave)
-
-        Fl = mflux / C0
-        Er = error / C0
-
-        ########interpolate spectra
-        flentry = np.zeros(len(wv_range))
-        errentry = np.zeros(len(wv_range))
-        mask = np.array([wave[0] < U < wave[-1] for U in wv_range])
-        ifl = interp1d(wave, Fl)
-        ier = interp1d(wave, Er)
-        flentry[mask] = ifl(wv_range[mask])
-        errentry[mask] = ier(wv_range[mask])
-        flgrid.append(flentry)
-        errgrid.append(errentry)
-
-    wv = np.array(wv_range)
-
-    flgrid = np.transpose(flgrid)
-    errgrid = np.transpose(errgrid)
-    weigrid = errgrid ** (-2)
-    infmask = np.isinf(weigrid)
-    weigrid[infmask] = 0
-    ################
-
-    stack, err = np.zeros([2, len(wv)])
-    for i in range(len(wv)):
-        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / np.sum(weigrid[i])
-        err[i] = 1 / np.sqrt(np.sum(weigrid[i]))
-    ################
-
-    return wv, stack, err
-
+    return wv_range, stack
 
 class Galaxy_sim(object):
     def __init__(self, metal, age, tau, redshift):
