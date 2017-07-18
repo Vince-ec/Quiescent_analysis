@@ -16,6 +16,30 @@ def Oldest_galaxy(z):
     return cosmo.age(z).value
 
 
+def Median_w_Error_cont(Pofx, x):
+    iP = interp1d(x, Pofx)
+    ix = np.linspace(x[0], x[-1], 500)
+
+    lerr = 0
+    herr = 0
+    med = 0
+
+    for i in range(len(ix)):
+        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
+        if lerr == 0:
+            if e >= .16:
+                lerr = ix[i]
+        if med == 0:
+            if e >= .50:
+                med = ix[i]
+        if herr == 0:
+            if e >= .84:
+                herr = ix[i]
+                break
+
+    return med, med - lerr, herr - med
+
+
 #####SPECZ FIT
 
 class RT_spec(object):
@@ -615,13 +639,16 @@ class Gen_sim(object):
 
 def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
            age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
-    bfm=[]
-    bfmnc=[]
-    bfmdf=[]
-    bfa=[]
-    bfanc=[]
-    bfadf=[]
-
+    bfm=np.zeros(repeats)
+    bfmnc=np.zeros(repeats)
+    bfmdf=np.zeros(repeats)
+    bfmdf2d=np.zeros(repeats)
+    bfmdf1d=np.zeros(repeats)
+    bfa=np.zeros(repeats)
+    bfanc=np.zeros(repeats)
+    bfadf=np.zeros(repeats)
+    bfadf2d=np.zeros(repeats)
+    bfadf1d=np.zeros(repeats)
 
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
     spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
@@ -629,16 +656,17 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
     ###############Get indicies
     IDF = []
     for i in range(len(spec.gal_wv_rf)):
-        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 4080 <= spec.gal_wv_rf[i] <= 4125 or 4250 <= spec.gal_wv_rf[i] <= 4385 \
-                or 4810 <= spec.gal_wv_rf[i] <= 4910 or 5110 <= spec.gal_wv_rf[i] <= 5285:
+        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 3910 <= spec.gal_wv_rf[i] <= 4030 or 4080 <= spec.gal_wv_rf[i] <= 4125 \
+                or 4250 <= spec.gal_wv_rf[i] <= 4385 or 4515 <= spec.gal_wv_rf[i] <= 4570 or 4810 <= spec.gal_wv_rf[i]\
+                <= 4910 or 4975 <= spec.gal_wv_rf[i] <= 5055 or 5110 <= spec.gal_wv_rf[i] <= 5285:
             IDF.append(i)
 
     IDC = []
     for i in range(len(spec.gal_wv_rf)):
         if spec.gal_wv_rf[0] <= spec.gal_wv_rf[i] <= 3800 or 3850 <= spec.gal_wv_rf[i] <= 3910 or 4030 <= \
                 spec.gal_wv_rf[i] <= 4080 or 4125 <= spec.gal_wv_rf[i] <= 4250 or 4385 <= spec.gal_wv_rf[i] <= 4515 or \
-                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= \
-                spec.gal_wv_rf[i] <= 5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
+                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= spec.gal_wv_rf[i] <= \
+                5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
             IDC.append(i)
 
     ###############Get model list
@@ -723,41 +751,64 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
         fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
         P = np.trapz(prob, ultau, axis=2)
-        # C = np.trapz(np.trapz(P, age, axis=1), metal)
+        C = np.trapz(np.trapz(P, age, axis=1), metal)
 
         Pnc = np.trapz(ncprob, ultau, axis=2)
-        # Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
+        Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
 
         Pc = np.trapz(cprob, ultau, axis=2)
         Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
+        Pcm = np.trapz(Pc, age, axis=1) / Cc
+        Pca = np.trapz(Pc.T, metal, axis=1)/ Cc
 
         Pf = np.trapz(fprob, ultau, axis=2)
         Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
-
+        Pfm = np.trapz(Pf, age, axis=1)/ Cf
+        Pfa = np.trapz(Pf.T, metal, axis=1)/ Cf
         ########
 
         comb_prob = cprob / Cc * fprob / Cf
 
         df_post = np.trapz(comb_prob, ultau, axis=2)
-        # C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
-        # df_post /= C0
+        C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
+        df_post /= C0
 
-        ids = np.argwhere(P == np.max(P))
-        bfm.append(metal[ids[0][0]])
-        bfa.append(age[ids[0][1]])
+        comb_prob2d = Pc / Cc * Pf / Cf
+        C2d = np.trapz(np.trapz(comb_prob2d, age, axis=1), metal)
+        comb_prob2d /= C2d
 
-        ids = np.argwhere(Pnc == np.max(Pnc))
-        bfmnc.append(metal[ids[0][0]])
-        bfanc.append(age[ids[0][1]])
+        #### Get Z and t posteriors
+        PZ = np.trapz(P / C, age, axis=1)
+        Pt = np.trapz(P.T / C, metal, axis=1)
 
-        ids = np.argwhere(df_post == np.max(df_post))
-        bfmdf.append(metal[ids[0][0]])
-        bfadf.append(age[ids[0][1]])
+        PZnc = np.trapz(Pnc / Cnc, age, axis=1)
+        Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
 
+        PZdf = np.trapz(df_post, age, axis=1)
+        Ptdf = np.trapz(df_post.T, metal, axis=1)
+
+        PZdf2d = np.trapz(comb_prob2d, age, axis=1)
+        Ptdf2d = np.trapz(comb_prob2d.T, metal, axis=1)
+
+        PZdf1d = (Pfm * Pcm) / np.trapz((Pfm * Pcm),metal)
+        Ptdf1d = (Pfa * Pca) / np.trapz((Pfa * Pca),age)
+
+        bfm[xx],ml,mh = Median_w_Error_cont(PZ,metal)
+        bfmnc[xx],ml,mh = Median_w_Error_cont(PZnc,metal)
+        bfmdf[xx],ml,mh = Median_w_Error_cont(PZdf,metal)
+        bfmdf2d[xx],ml,mh = Median_w_Error_cont(PZdf2d,metal)
+        bfmdf1d[xx],ml,mh = Median_w_Error_cont(PZdf1d,metal)
+        bfa[xx],ml,mh = Median_w_Error_cont(Pt,age)
+        bfanc[xx],ml,mh = Median_w_Error_cont(Ptnc,age)
+        bfadf[xx],ml,mh = Median_w_Error_cont(Ptdf,age)
+        bfadf2d[xx],ml,mh = Median_w_Error_cont(Ptdf2d,age)
+        bfadf1d[xx],ml,mh = Median_w_Error_cont(Ptdf1d,age)
 
     np.save('/home/vestrada78840/mcerr/' + name, [bfm, bfa])
     np.save('/home/vestrada78840/mcerr/' + name + 'NC', [bfmnc, bfanc])
-    np.save('/home/vestrada78840/mcerr/' + name + 'DF', [bfmdf, bfadf])
+    np.save('/home/vestrada78840/mcerr/' + name + 'DF3d', [bfmdf, bfadf])
+    np.save('/home/vestrada78840/mcerr/' + name + 'DF2d', [bfmdf2d, bfadf2d])
+    np.save('/home/vestrada78840/mcerr/' + name + 'DF1d', [bfmdf1d, bfadf1d])
 
     return
 
