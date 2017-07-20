@@ -1183,6 +1183,62 @@ def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau, age_conv='.
     return prob.T, PZ,Pt
 
 
+def Analyze_LH(chifits, specz, metal, age, tau, age_conv='../data/tau_scale_ntau.dat'):
+    ####### Get maximum age
+    max_age = Oldest_galaxy(specz)
+
+    ####### Read in file
+    chi = np.load(chifits).T
+
+    chi[:, len(age[age <= max_age]):, :] = 1E5
+
+    ####### Get scaling factor for tau reshaping
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtau = np.array([0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 6.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    ######## Reshape likelihood to get average age instead of age when marginalized
+    newchi = np.zeros(chi.shape)
+
+    for i in range(len(chi)):
+        if i == 0:
+            newchi[i] = chi[i]
+        else:
+            frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+            newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    P = np.exp(-newchi.T.astype(np.float128) / 2)
+
+    prob = np.trapz(P, ultau, axis=2)
+    C = np.trapz(np.trapz(prob, age, axis=1), metal)
+
+    prob /= C
+
+    #### Get Z and t posteriors
+
+    PZ = np.trapz(prob, age, axis=1)
+    Pt = np.trapz(prob.T, metal,axis=1)
+
+    return prob.T, PZ,Pt
+
+
 class Galaxy(object):
     def __init__(self, galaxy_id):
         self.galaxy_id = galaxy_id
