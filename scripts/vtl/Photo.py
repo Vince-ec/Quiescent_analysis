@@ -86,6 +86,48 @@ class Photometry(object):
         self.photo = photo
         self.photo_er = photoer
 
+    def Photo_clipped(self):
+
+        IDX = [U for U in range(len(self.sens_wv)) if self.wv[0] < self.sens_wv[U] < self.wv[-1]]
+
+        h = C.h  # planck constant erg s
+        c = C.c  # speed of light cm s^-1
+        atocm = C.angtocm
+
+        wave = self.wv * atocm
+        filtnu = c /(self.sens_wv[IDX] * atocm)
+        nu = c / wave
+        fnu = (c/nu**2) * self.fl
+        Fnu = interp1d(nu, fnu)(filtnu)
+        ernu = (c/nu**2) * self.er
+        Ernu = interp1d(nu, ernu)(filtnu)
+
+        energy = 1 / (h *filtnu)
+
+        top1 = Fnu * energy * self.trans[IDX]
+        top = np.trapz(top1, filtnu)
+        bottom1 = self.trans[IDX] * energy
+        bottom = np.trapz(bottom1, filtnu)
+        photonu = top / bottom
+
+        top1 = Ernu * energy * self.trans[IDX]
+        top = np.trapz(top1, filtnu)
+        bottom1 = self.trans[IDX] * energy
+        bottom = np.trapz(bottom1, filtnu)
+        erphotonu = top / bottom
+
+        tp = np.trapz(((self.trans * np.log(self.sens_wv)) / self.sens_wv), self.sens_wv)
+        bm = np.trapz(self.trans / self.sens_wv, self.sens_wv)
+
+        wave_eff = np.exp(tp / bm)
+
+        photo = photonu * (c / (wave_eff * atocm) ** 2)
+        photoer = erphotonu * (c / (wave_eff * atocm) ** 2)
+
+        self.eff_wv = wave_eff
+        self.photo = photo
+        self.photo_er = photoer
+
     def Photo_model(self,mwv,mfl):
         h=C.h # planck constant erg s
         c=C.c          # speed of light cm s^-1
