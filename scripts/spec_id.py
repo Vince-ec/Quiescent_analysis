@@ -225,15 +225,20 @@ def Median_w_Error(Pofx, x):
 
 
 def Median_w_Error_cont(Pofx, x):
-    iP = interp1d(x, Pofx)
     ix = np.linspace(x[0], x[-1], 500)
+    iP = interp1d(x, Pofx)(ix)
+
+    C = np.trapz(iP,ix)
+
+    iP/=C
+
 
     lerr = 0
     herr = 0
     med = 0
 
     for i in range(len(ix)):
-        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
+        e = np.trapz(iP[0:i + 1], ix[0:i + 1])
         if lerr == 0:
             if e >= .16:
                 lerr = ix[i]
@@ -245,7 +250,7 @@ def Median_w_Error_cont(Pofx, x):
                 herr = ix[i]
                 break
 
-    return med, med - lerr, herr - med
+    return med, med - lerr, herr - np.abs(med)
 
 
 def Scale_model(D, sig, M):
