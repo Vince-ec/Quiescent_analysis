@@ -380,7 +380,7 @@ def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxw
 
 
 def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
-                         age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
+                         age_conv='/fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
     ####### Get maximum age
     max_age = Oldest_galaxy(specz)
 
@@ -638,7 +638,7 @@ class Gen_sim(object):
 
 
 def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
-           age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
+           age_conv='/fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
     bfm=np.zeros(repeats)
     bfmnc=np.zeros(repeats)
     bfmdf=np.zeros(repeats)
@@ -814,7 +814,7 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
 
 
 def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=100,
-           age_conv='./../../../fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
+           age_conv='/fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
     mlist = []
     alist = []
 
@@ -943,7 +943,7 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=10
 
 #####JWST FIT
 
-def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='tau_scale_nirspec.dat'):
+def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='/fdata/scratch/vestrada78840/data/tau_scale_nirspec.dat'):
     ####### Get maximum age
     max_age = Oldest_galaxy(specz)
 
@@ -991,22 +991,27 @@ def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='tau_scale_nirspec
     return prob.T, PZ,Pt
 
 
-def Nirspec_fit(sim_spec,metal, age, tau, galaxy, name):
+def Nirspec_fit(sim_spec,metal, age, tau, name):
     #############Read in spectra#################
     wv, fl, er = np.load(sim_spec)
+    fl = fl [wv<4.9]
+    er = er [wv<4.9]
 
     flx = fl + np.random.normal(0,er)
+
     #############Prep output files###############
     chifile = '../chidat/%s_JWST_chidata' % name
 
     ##############Create chigrid and add to file#################
-    mflx = np.zeros([len(metal)*len(age)*len(tau),len(wv)])
+    mflx = np.zeros([len(metal)*len(age)*len(tau),len([wv<4.9])])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
-                mwv, mfl = 'file_path%s' % (metal[i], age[ii], tau[iii])
-                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl
+                mwv, mfl = np.load('/fdata/scratch/vestrada78840/nirspec/m%s_a%s_t%s_nirspec.npy' %
+                                   (metal[i], age[ii], tau[iii]))
+                C = Scale_model(flx,er,mfl[wv<4.9])
+                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[wv<4.9]*C
     chigrid = np.sum(((flx - mflx) / er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
 
     ################Write chigrid file###############
