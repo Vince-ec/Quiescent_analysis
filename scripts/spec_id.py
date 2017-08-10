@@ -3226,7 +3226,6 @@ def Nirspec_fit(sim_spec,metal, age, tau, name):
                 mwv, mfl = np.load('../JWST/m%s_a%s_t%s_nirspec.npy' %
                                    (metal[i], age[ii], tau[iii]))
                 C = Scale_model(flx,er,mfl[wv<4.9])
-                # print mfl[wv<4.9]*C
                 mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[wv<4.9]*C
     chigrid = np.sum(((flx - mflx) / er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
 
@@ -3255,3 +3254,91 @@ def Highest_likelihood_model_JWST(spec, rshift, bfmetal, bfage, tau):
         chi.append(Identify_stack(fl, er, C * imfl))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
+
+
+def MC_fit_jwst(sim_spec, metal, age, tau, name, repeats=100, age_conv='../data/tau_scale_nirspec.dat'):
+    ####### Get maximum age
+    max_age = Oldest_galaxy(3.717)
+
+    mlist = []
+    alist = []
+
+    ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
+    iZ = np.linspace(metal[0], metal[-1], 100)
+    it = np.linspace(age[0], age[-1], 100)
+
+    wv, fl, er = np.load(sim_spec)
+    fl = fl [wv<4.9]
+    er = er [wv<4.9]
+
+    ###############Get model list
+    mflx = np.zeros([len(metal)*len(age)*len(tau),len(wv[wv<4.9])])
+
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                mwv, mfl = np.load('../JWST/m%s_a%s_t%s_nirspec.npy' %
+                                   (metal[i], age[ii], tau[iii]))
+                C = Scale_model(fl,er,mfl[wv<4.9])
+                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[wv<4.9]*C
+
+    scale = Readfile(age_conv)
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    for xx in range(repeats):
+        flx = fl + np.random.normal(0, er)
+
+        chi = np.sum(((flx - mflx) / er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
+
+        chi[:, len(age[age <= max_age]):, :] = 1E5
+        ######## Reshape likelihood to get average age instead of age when marginalized
+        newchi = np.zeros(chi.T.shape)
+
+        for i in range(len(newchi)):
+            if i == 0:
+                newchi[i] = chi.T[i]
+            else:
+                frame = interp2d(metal, scale[i], chi.T[i])(metal, age[:-overhead[i]])
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+        ####### Create normalize probablity marginalized over tau
+        prob = np.exp(-newchi.T.astype(np.float128) / 2)
+
+        P = np.trapz(prob, ultau, axis=2)
+        C = np.trapz(np.trapz(P, age, axis=1), metal)
+
+        #### Get Z and t posteriors
+        PZ = np.trapz(P / C, age, axis=1)
+        Pt = np.trapz(P.T / C, metal, axis=1)
+
+        iPZ = interp1d(metal, PZ)(iZ)
+        iPt = interp1d(age, Pt)(it)
+
+        med = 0
+        for i in range(len(iZ)):
+            e = np.trapz(iPZ[0:i + 1], iZ[0:i + 1])
+            if med == 0:
+                if e >= .5:
+                    med = iZ[i]
+
+        mlist.append(med)
+
+        med = 0
+        for i in range(len(it)):
+            e = np.trapz(iPt[0:i + 1], it[0:i + 1])
+            if med == 0:
+                if e >= .5:
+                    med = it[i]
+
+        alist.append(med)
+
+    np.save('../mcerr/' + name, [mlist, alist])
+
+    return
