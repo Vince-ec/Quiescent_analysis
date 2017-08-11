@@ -3209,11 +3209,12 @@ def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='../data/tau_scale
 def Nirspec_fit(sim_spec,metal, age, tau, name):
     #############Read in spectra#################
     wv, fl, er = np.load(sim_spec)
-    fl = fl [wv<4.9]
-    er = er [wv<4.9]
 
-    flx = fl + np.random.normal(0,er)
+    flx = np.zeros(len(wv))
 
+    for i in range(len(wv)):
+        if er[i] > 0:
+            flx[i] = fl[i] + np.random.normal(0, er[i])
     #############Prep output files###############
     chifile = '../chidat/%s_JWST_chidata' % name
 
@@ -3225,9 +3226,9 @@ def Nirspec_fit(sim_spec,metal, age, tau, name):
             for iii in range(len(tau)):
                 mwv, mfl = np.load('../JWST/m%s_a%s_t%s_nirspec.npy' %
                                    (metal[i], age[ii], tau[iii]))
-                C = Scale_model(flx,er,mfl[wv<4.9])
+                C = Scale_model(flx[wv<4.9],er[wv<4.9],mfl[wv<4.9])
                 mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[wv<4.9]*C
-    chigrid = np.sum(((flx - mflx) / er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
+    chigrid = np.sum(((flx[wv<4.9] - mflx) / er[wv<4.9]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
 
     ################Write chigrid file###############
     np.save(chifile, chigrid)
@@ -3237,21 +3238,22 @@ def Nirspec_fit(sim_spec,metal, age, tau, name):
     np.save('../chidat/%s_tZ_pos' % name,P)
     np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
+    np.save('../data/nirspec_sim_data',[wv,fl,flx,er])
 
     print 'Done!'
     return
 
 
 def Highest_likelihood_model_JWST(spec, rshift, bfmetal, bfage, tau):
-    wv, fl, er = np.load(spec)
+    wv, fl, flx, er = np.load(spec)
     fp = '../JWST/'
 
     chi = []
     for i in range(len(tau)):
         mwv, mfl = np.load(fp + 'm%s_a%s_t%s_nirspec.npy' % (bfmetal, bfage, tau[i]))
         imfl = interp1d(mwv, mfl)(wv)
-        C = Scale_model(fl, er, imfl)
-        chi.append(Identify_stack(fl, er, C * imfl))
+        C = Scale_model(flx[wv<4.9], er[wv<4.9], imfl[wv<4.9])
+        chi.append(Identify_stack(fl[wv<4.9], er[wv<4.9], C * imfl[wv<4.9]))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
 
