@@ -3206,7 +3206,7 @@ def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='../data/tau_scale
     return prob.T, PZ,Pt
 
 
-def Nirspec_fit(sim_spec,metal, age, tau, name):
+def Nirspec_fit(sim_spec, filters, metal, age, tau, name):
     #############Read in spectra#################
     wv, fl, er = np.load(sim_spec)
 
@@ -3219,16 +3219,17 @@ def Nirspec_fit(sim_spec,metal, age, tau, name):
     chifile = '../chidat/%s_JWST_chidata' % name
 
     ##############Create chigrid and add to file#################
-    mflx = np.zeros([len(metal)*len(age)*len(tau),len(wv[wv<4.9])])
+    mflx = np.zeros([len(metal)*len(age)*len(tau),len(wv)])
 
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
-                mwv, mfl = np.load('../JWST/m%s_a%s_t%s_nirspec.npy' %
-                                   (metal[i], age[ii], tau[iii]))
-                C = Scale_model(flx[wv<4.9],er[wv<4.9],mfl[wv<4.9])
-                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[wv<4.9]*C
-    chigrid = np.sum(((flx[wv<4.9] - mflx) / er[wv<4.9]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
+                mwv, mfl = np.load('../JWST/m%s_a%s_t%s_%s.npy' %
+                                   (metal[i], age[ii], tau[iii],filters))
+                mfl *=(mwv)**2 / 3E14
+                C = Scale_model(flx,er,mfl)
+                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl*C
+    chigrid = np.sum(((flx - mflx) / er) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
 
     ################Write chigrid file###############
     np.save(chifile, chigrid)
@@ -3238,22 +3239,22 @@ def Nirspec_fit(sim_spec,metal, age, tau, name):
     np.save('../chidat/%s_tZ_pos' % name,P)
     np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
-    np.save('../data/nirspec_sim_data',[wv,fl,flx,er])
+    np.save('../data/nirspec_sim_data_%s' % filters,[wv,fl,flx,er])
 
     print 'Done!'
     return
 
 
-def Highest_likelihood_model_JWST(spec, rshift, bfmetal, bfage, tau):
+def Highest_likelihood_model_JWST(spec, filters, bfmetal, bfage, tau):
     wv, fl, flx, er = np.load(spec)
     fp = '../JWST/'
 
     chi = []
     for i in range(len(tau)):
-        mwv, mfl = np.load(fp + 'm%s_a%s_t%s_nirspec.npy' % (bfmetal, bfage, tau[i]))
-        imfl = interp1d(mwv, mfl)(wv)
-        C = Scale_model(flx[wv<4.9], er[wv<4.9], imfl[wv<4.9])
-        chi.append(Identify_stack(fl[wv<4.9], er[wv<4.9], C * imfl[wv<4.9]))
+        mwv, mfl = np.load(fp + 'm%s_a%s_t%s_%s.npy' % (bfmetal, bfage, tau[i], filters))
+        mfl *= (mwv) ** 2 / 3E14
+        C = Scale_model(flx, er, mfl)
+        chi.append(Identify_stack(fl, er, C * mfl))
 
     return bfmetal, bfage, tau[np.argmin(chi)]
 
