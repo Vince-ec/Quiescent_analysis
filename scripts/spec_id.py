@@ -3245,6 +3245,150 @@ def Nirspec_fit(sim_spec, filters, metal, age, tau, name):
     return
 
 
+def Nirspec_feat_fit(sim_spec, z, filters, metal, age, tau, name, prism = True):
+    #############Read in spectra#################
+    wv, fl, er = np.load(sim_spec)
+    IDF = []
+
+    if prism == True:
+        for i in range(len(wv)):
+            if 0.3910 <= wv[i] / (1 + z) <= 0.4030 or 0.4050 <= wv[i] / (1 + z) <= 0.4180 or 0.4220 <= wv[i] / (1 + z)\
+                <= 0.4480 or 0.4750 <= wv[i] / (1 + z) <= 0.5000 or 0.5090 <= wv[i] / (1 + z) <= 0.5280 or \
+                0.5800 <= wv[i] / (1 + z) <= 0.5970 or 0.6460 <= wv[i] / (1 + z) <= 0.6670 or 0.8380 <= wv[i] / (1 + z)\
+                <= 0.8750:
+                IDF.append(i)
+
+    else:
+        for i in range(len(wv)):
+            if 0.4845 <= wv[i] / (1 + z) <= 0.4885 or 0.5160 <= wv[i] / (1 + z) <= 0.5180 or 0.5255 <= wv[i] / (1 + z) \
+                    <= 0.5280 or 0.5695 <= wv[i] / (1 + z) <= 0.5725 or 0.5875 <= wv[i] / (1 + z) <= 0.5910 or \
+                0.6540 <= wv[i] / (1 + z)<= 0.6590 or 0.8480 <= wv[i] / (1 + z) <= 0.8580 or 0.8630 <= wv[i] / (1 + z) \
+                    <= 0.8710:
+                IDF.append(i)
+
+    flx = np.zeros(len(wv))
+
+    for i in range(len(wv)):
+        if er[i] > 0:
+            flx[i] = fl[i] + np.random.normal(0, er[i])
+    #############Prep output files###############
+    chifile = '../chidat/%s_JWST_chidata' % name
+
+    ##############Create chigrid and add to file#################
+    mflx = np.zeros([len(metal)*len(age)*len(tau),len(IDF)])
+
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                mwv, mfl = np.load('../JWST/m%s_a%s_t%s_%s.npy' %
+                                   (metal[i], age[ii], tau[iii],filters))
+                mfl *=(mwv)**2 / 3E14
+                C = Scale_model(flx[IDF],er[IDF],mfl[IDF])
+                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=mfl[IDF]*C
+    chigrid = np.sum(((flx[IDF] - mflx) / er[IDF]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
+
+    ################Write chigrid file###############
+    np.save(chifile, chigrid)
+
+    P, PZ, Pt = Analyze_JWST_LH(chifile + '.npy', 3.717, metal, age, tau)
+
+    np.save('../chidat/%s_tZ_pos' % name,P)
+    np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
+    np.save('../chidat/%s_t_pos' % name,[age,Pt])
+    np.save('../data/nirspec_sim_data_%s_ff' % filters,[wv,fl,flx,er])
+
+    print 'Done!'
+    return
+
+
+def Nirspec_feat_fit_freescale(sim_spec, z, filters, metal, age, tau, name, prism = True):
+    #############Read in spectra#################
+    wv, fl, er = np.load(sim_spec)
+    IDF = []
+
+    if prism == True:
+        for i in range(len(wv)):
+            if 0.3910 <= wv[i] / (1 + z) <= 0.4030 or 0.4050 <= wv[i] / (1 + z) <= 0.4180 or 0.4220 <= wv[i] / (1 + z)\
+                <= 0.4480 or 0.4750 <= wv[i] / (1 + z) <= 0.5000 or 0.5090 <= wv[i] / (1 + z) <= 0.5280 or \
+                0.5800 <= wv[i] / (1 + z) <= 0.5970 or 0.6460 <= wv[i] / (1 + z) <= 0.6670 or 0.8380 <= wv[i] / (1 + z)\
+                <= 0.8750:
+                IDF.append(i)
+
+    else:
+        IDhb = []
+        IDmg1 = []
+        IDmg2 = []
+        IDmg3 = []
+        IDna = []
+        IDha = []
+        IDca1 = []
+        IDca2 = []
+        IDf =[]
+        for i in range(len(wv)):
+            if 0.4845 <= wv[i] / (1 + z) <= 0.4885:
+                IDhb.append(i)
+            if 0.5160 <= wv[i] / (1 + z) <= 0.5180:
+                IDmg1.append(i)
+            if 0.5255 <= wv[i] / (1 + z) <= 0.5280:
+                IDmg2.append(i)
+            if 0.5695 <= wv[i] / (1 + z) <= 0.5725:
+                IDmg3.append(i)
+            if 0.5875 <= wv[i] / (1 + z) <= 0.5910:
+                IDna.append(i)
+            if 0.6540 <= wv[i] / (1 + z) <= 0.6590:
+                IDha.append(i)
+            if 0.8480 <= wv[i] / (1 + z) <= 0.8580:
+                IDca1.append(i)
+            if 0.8630 <= wv[i] / (1 + z) <= 0.8710:
+                IDca2.append(i)
+        IDF=np.array([IDhb, IDmg1, IDmg2, IDmg3, IDna, IDha, IDca1, IDca2])
+
+        for i in range(len(wv)):
+            if 0.4845 <= wv[i] / (1 + z) <= 0.4885 or 0.5160 <= wv[i] / (1 + z) <= 0.5180 or 0.5255 <= wv[i] / (1 + z) \
+                    <= 0.5280 or 0.5695 <= wv[i] / (1 + z) <= 0.5725 or 0.5875 <= wv[i] / (1 + z) <= 0.5910 or \
+                0.6540 <= wv[i] / (1 + z)<= 0.6590 or 0.8480 <= wv[i] / (1 + z) <= 0.8580 or 0.8630 <= wv[i] / (1 + z) \
+                    <= 0.8710:
+                IDf.append(i)
+
+
+    flx = np.zeros(len(wv))
+
+    for i in range(len(wv)):
+        if er[i] > 0:
+            flx[i] = fl[i] + np.random.normal(0, er[i])
+    #############Prep output files###############
+    chifile = '../chidat/%s_JWST_chidata' % name
+
+    ##############Create chigrid and add to file#################
+    mflx = np.zeros([len(metal)*len(age)*len(tau),len(IDf)])
+
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                mwv, mfl = np.load('../JWST/m%s_a%s_t%s_%s.npy' %
+                                   (metal[i], age[ii], tau[iii],filters))
+                mfl *=(mwv)**2 / 3E14
+                Fmfl = np.array([])
+                for iv in range(len(IDF)):
+                    C = Scale_model(flx[IDF[iv]],er[IDF[iv]],mfl[IDF[iv]])
+                    Fmfl = np.append(Fmfl,C*mfl[IDF[iv]])
+                mflx[i*len(age)*len(tau)+ii*len(tau)+iii]=Fmfl
+    chigrid = np.sum(((flx[IDf] - mflx) / er[IDf]) ** 2, axis=1).reshape([len(metal), len(age), len(tau)]).astype(np.float128)
+
+    ################Write chigrid file###############
+    np.save(chifile, chigrid)
+
+    P, PZ, Pt = Analyze_JWST_LH(chifile + '.npy', 3.717, metal, age, tau)
+
+    np.save('../chidat/%s_tZ_pos' % name,P)
+    np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
+    np.save('../chidat/%s_t_pos' % name,[age,Pt])
+    np.save('../data/nirspec_sim_data_%s' % name,[wv,fl,flx,er])
+
+    print 'Done!'
+    return
+
+
 def Highest_likelihood_model_JWST(spec, filters, bfmetal, bfage, tau):
     wv, fl, flx, er = np.load(spec)
     fp = '../JWST/'
