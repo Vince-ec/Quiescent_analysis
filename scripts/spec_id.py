@@ -1906,6 +1906,7 @@ class Gen_sim(object):
 
         self.nc_fl = self.fl / C0
         self.nc_er = self.gal_er / C0
+        self.C = C0
 
 
     def Perturb_flux(self):
@@ -1949,6 +1950,7 @@ class Gen_sim(object):
         C0 = np.polyval(params,self.gal_wv_rf)
 
         self.nc_mfl = self.mfl / C0
+
 
 
 def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
