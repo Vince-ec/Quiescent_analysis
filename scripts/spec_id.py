@@ -1116,6 +1116,97 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
     return
 
 
+def Sim_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11400,
+           age_conv='../data/tau_scale_ntau.dat'):
+
+
+    ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
+    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
+
+    ###############Get model list
+    mfl = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
+    mfl_nc = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                spec.Sim_spec(metal[i], age[ii], tau[iii])
+                mfl[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl
+                spec.RM_sim_spec_cont()
+                mfl_nc[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.nc_mfl
+
+
+    convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
+                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
+    convage = np.arange(.5, 6.1, .1)
+
+    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
+    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
+
+    convtable = Readfile(age_conv)
+    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
+
+    overhead = np.zeros(len(scale)).astype(int)
+    for i in range(len(scale)):
+        amt = []
+        for ii in range(len(age)):
+            if age[ii] > scale[i][-1]:
+                amt.append(1)
+        overhead[i] = sum(amt)
+
+    spec.Perturb_flux()
+    spec.Perturb_flux_nc()
+    chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
+        [len(metal), len(age), len(tau)]).astype(
+        np.float128).T
+    NCchi = np.sum(((spec.nc_flx_err - mfl_nc) / spec.nc_er) ** 2, axis=1).reshape(
+        [len(metal), len(age), len(tau)]).astype(
+        np.float128).T
+
+    ######## Reshape likelihood to get average age instead of age when marginalized
+    newchi = np.zeros(chi.shape)
+    newNCchi = np.zeros(NCchi.shape)
+
+    for i in range(len(chi)):
+        if i == 0:
+            newchi[i] = chi[i]
+            newNCchi[i] = NCchi[i]
+        else:
+            frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+            newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+            ncframe = interp2d(metal, scale[i], NCchi[i])(metal, age[:-overhead[i]])
+            newNCchi[i] = np.append(ncframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+
+    ####### Create normalize probablity marginalized over tau
+    prob = np.exp(-newchi.T.astype(np.float128) / 2)
+    ncprob = np.exp(-newNCchi.T.astype(np.float128) / 2)
+
+    P = np.trapz(prob, ultau, axis=2)
+    C = np.trapz(np.trapz(P, age, axis=1), metal)
+
+    Pnc = np.trapz(ncprob, ultau, axis=2)
+    Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
+
+    #### Get Z and t posteriors
+    PZ = np.trapz(P / C, age, axis=1)
+    Pt = np.trapz(P.T / C, metal, axis=1)
+
+    PZnc = np.trapz(Pnc / Cnc, age, axis=1)
+    Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
+
+
+    np.save('../mcerr/' + name, P/C)
+    np.save('../mcerr/' + name + '_NC', Pnc/Cnc)
+    np.save('../mcerr/' + name + '_Z', [metal, PZ])
+    np.save('../mcerr/' + name + '_t', [age, Pt])
+    np.save('../mcerr/' + name + '_ncZ', [metal, PZnc])
+    np.save('../mcerr/' + name + '_nct', [age, Ptnc])
+    np.save('../mcerr/' + name + '_sim', [spec.gal_wv_rf, spec.flx_err])
+    np.save('../mcerr/' + name + '_ncsim', [spec.gal_wv_rf, spec.nc_flx_err])
+
+    return
+
+
 def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau, age_conv='../data/tau_scale_ntau.dat'):
     ####### Get maximum age
     max_age = Oldest_galaxy(specz)
