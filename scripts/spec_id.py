@@ -1153,8 +1153,7 @@ def Sim_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=790
                 amt.append(1)
         overhead[i] = sum(amt)
 
-    spec.Perturb_flux()
-    spec.Perturb_flux_nc()
+    spec.Perturb_both()
     chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
         [len(metal), len(age), len(tau)]).astype(
         np.float128).T
@@ -2007,6 +2006,10 @@ class Gen_sim(object):
     def Perturb_flux_nc(self):
         self.nc_flx_err = np.abs(self.nc_fl + np.random.normal(0, self.nc_er))
 
+    def Perturb_both(self):
+        one_sig_pert = np.random.normal(0, np.ones(len(self.gal_er)))
+        self.flx_err = np.abs(self.fl + one_sig_pert * self.gal_er)
+        self.nc_flx_err = np.abs(self.nc_fl + one_sig_pert * self.nc_er)
 
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
