@@ -212,10 +212,11 @@ def Specz_fit(galaxy, metal, age, rshift, name):
 #####GALAXY FIT
 
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, minwv = 7900, maxwv = 11300, pad=100):
+    def __init__(self, galaxy_id, redshift, minwv = 7900, maxwv = 11300, pad=100, delayed_tau = False):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.pad = pad
+        self.delayed_tau = delayed_tau
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
@@ -273,7 +274,11 @@ class Gen_spec(object):
         self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
 
     def Sim_spec(self, metal, age, tau):
-        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        if self.delayed_tau == False:
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        else :
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
+
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -298,9 +303,9 @@ class Gen_spec(object):
         self.fl = C * adj_ifl
 
 
-def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11300):
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11400, delayed_tau = False):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
+    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv, delayed_tau = delayed_tau)
 
     if galaxy == 'n21156' or galaxy == 'n38126':
         IDer = []
@@ -369,7 +374,10 @@ def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxw
     np.save(chifile2,chigrid2)
     np.save(chifile3,chigrid3)
 
-    P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau)
+    if delayed_tau == False:
+        P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau)
+    else:
+        P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau, age_conv='')
 
     np.save('/home/vestrada78840/chidat/%s_tZ_pos' % name,P)
     np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
