@@ -377,7 +377,8 @@ def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxw
     if delayed_tau == False:
         P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau)
     else:
-        P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau, age_conv='')
+        P, PZ, Pt = Analyze_LH_cont_feat(chifile2 + '.npy', chifile3 + '.npy', specz, metal, age, tau,
+                                         age_conv='/fdata/scratch/vestrada78840/data/tau_scale_delayed.dat')
 
     np.save('/home/vestrada78840/chidat/%s_tZ_pos' % name,P)
     np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
