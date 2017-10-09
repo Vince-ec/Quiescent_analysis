@@ -464,7 +464,7 @@ def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
 #####MC FIT
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100):
+    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100, delayed_tau = False):
         import pysynphot as S
         self.galaxy_id = galaxy_id
         self.redshift = redshift
@@ -472,6 +472,7 @@ class Gen_sim(object):
         self.age = age
         self.tau = tau
         self.pad = pad
+        self.delayed_tau = delayed_tau
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
@@ -537,8 +538,10 @@ class Gen_sim(object):
 
         ## create basis model for sim
 
-        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' \
-                % (self.metal, self.age, self.tau)
+        if self.delayed_tau == False:
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (self.metal, self.age, self.tau)
+        else :
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_dt%s_spec.npy' % (self.metal, self.age, self.tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -822,42 +825,21 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
     return
 
 
-def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=100,
+def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=1000,delayed_tau = True,
            age_conv='/fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
-    mlist = []
-    alist = []
+    mlist = np.zeros(repeats)
+    alist = np.zeros(repeats)
 
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
-    iZ = np.linspace(metal[0], metal[-1], 100)
-    it = np.linspace(age[0], age[-1], 100)
-    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t)
-
-    ###############Get indicies
-    IDF = []
-    for i in range(len(spec.gal_wv_rf)):
-        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 3910 <= spec.gal_wv_rf[i] <= 4030 or 4080 <= spec.gal_wv_rf[i] <= 4125 \
-                or 4250 <= spec.gal_wv_rf[i] <= 4385 or 4515 <= spec.gal_wv_rf[i] <= 4570 or 4810 <= spec.gal_wv_rf[i] \
-                <= 4910 or 4975 <= spec.gal_wv_rf[i] <= 5055 or 5110 <= spec.gal_wv_rf[i] <= 5285:
-            IDF.append(i)
-
-    IDC = []
-    for i in range(len(spec.gal_wv_rf)):
-        if spec.gal_wv_rf[0] <= spec.gal_wv_rf[i] <= 3800 or 3850 <= spec.gal_wv_rf[i] <= 3910 or 4030 <= \
-                spec.gal_wv_rf[i] <= 4080 or 4125 <= spec.gal_wv_rf[i] <= 4250 or 4385 <= spec.gal_wv_rf[i] <= 4515 or \
-                                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= \
-                spec.gal_wv_rf[i] <= \
-                5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
-            IDC.append(i)
+    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t, delayed_tau=delayed_tau)
 
     ###############Get model list
-    mfl_f = np.zeros([len(metal) * len(age) * len(tau), len(IDF)])
-    mfl_c = np.zeros([len(metal) * len(age) * len(tau), len(IDC)])
+    mfl = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
                 spec.Sim_spec(metal[i], age[ii], tau[iii])
-                mfl_f[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDF]
-                mfl_c[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDC]
+                mfl[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl
 
     convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
                         9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
@@ -880,71 +862,33 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=10
     for xx in range(repeats):
         spec.Perturb_flux()
 
-        Fchi = np.sum(((spec.flx_err[IDF] - mfl_f) / spec.gal_er[IDF]) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
-        Cchi = np.sum(((spec.flx_err[IDC] - mfl_c) / spec.gal_er[IDC]) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
+        chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128).T
 
         ######## Reshape likelihood to get average age instead of age when marginalized
-        newCchi = np.zeros(Cchi.shape)
-        newFchi = np.zeros(Fchi.shape)
+        newchi = np.zeros(chi.shape)
 
-        for i in range(len(Cchi)):
+        for i in range(len(chi)):
             if i == 0:
-                newCchi[i] = Cchi[i]
-                newFchi[i] = Fchi[i]
+                newchi[i] = chi[i]
             else:
-                print scale[i]
-                cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
-                print cframe.shape
-                newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
-
-                fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
-                newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+                frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
+                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
-        cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
+        prob = np.exp(-newchi.T.astype(np.float128) / 2)
 
-        Pc = np.trapz(cprob, ultau, axis=2)
-        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
-
-        fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
-
-        Pf = np.trapz(fprob, ultau, axis=2)
-        Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
-
-        comb_prob = cprob / Cc * fprob / Cf
-
-        prob = np.trapz(comb_prob, ultau, axis=2)
-        C0 = np.trapz(np.trapz(prob, age, axis=1), metal)
-        prob /= C0
+        P = np.trapz(prob, ultau, axis=2)
+        C = np.trapz(np.trapz(P, age, axis=1), metal)
 
         #### Get Z and t posteriors
-        PZ = np.trapz(prob, age, axis=1)
-        Pt = np.trapz(prob.T, metal, axis=1)
+        PZ = np.trapz(P / C, age, axis=1)
+        Pt = np.trapz(P.T / C, metal, axis=1)
 
-        iPZ = interp1d(metal, PZ)(iZ)
-        iPt = interp1d(age, Pt)(it)
+        mlist[xx],ml,mh = Median_w_Error_cont(PZ,metal)
+        alist[xx],ml,mh = Median_w_Error_cont(Pt,age)
 
-        med = 0
-        for i in range(len(iZ)):
-            e = np.trapz(iPZ[0:i + 1], iZ[0:i + 1])
-            if med == 0:
-                if e >= .5:
-                    med = iZ[i]
-                    break
-        mlist.append(med)
 
-        med = 0
-        for i in range(len(it)):
-            e = np.trapz(iPt[0:i + 1], it[0:i + 1])
-            if med == 0:
-                if e >= .5:
-                    med = it[i]
-                    break
-        alist.append(med)
 
     np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
 
