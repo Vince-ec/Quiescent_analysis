@@ -617,8 +617,10 @@ class Gen_sim(object):
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
 
-        model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
-
+        if self.delayed_tau == False:
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        else :
+            model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
         spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
