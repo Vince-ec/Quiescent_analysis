@@ -1334,6 +1334,58 @@ def Analyze_LH(chifits, specz, metal, age, tau, age_conv='../data/tau_scale_ntau
     return prob.T, PZ,Pt
 
 
+def Analyze_LH_lwa(chifits, specz, metal, age, tau, age_conv='../data/light_weight_scaling.npy'):
+    ####### Get maximum age
+    max_age = Oldest_galaxy(specz)
+
+    ####### Read in file
+    chi = np.load(chifits).T
+
+    chi[:, len(age[age <= max_age]):, :] = 1E5
+
+    ####### Get scaling factor for tau reshaping
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtable = np.load(age_conv)
+
+    overhead = np.zeros([len(tau),metal.size]).astype(int)
+    for i in range(len(tau)):
+        for ii in range(metal.size):
+            amt=[]
+            for iii in range(age.size):
+                if age[iii] > convtable.T[i].T[ii][-1]:
+                    amt.append(1)
+            overhead[i][ii] = sum(amt)
+
+    ######## Reshape likelihood to get average age instead of age when marginalized
+    newchi = np.zeros(chi.shape)
+
+    for i in range(len(chi)):
+        if i == 0:
+            newchi[i] = chi[i]
+        else:
+            frame = np.zeros([metal.size,age.size])
+            for ii in range(metal.size):
+                dist = interp1d(convtable.T[i].T[ii],chi[i].T[ii])(age[:-overhead[i][ii]])
+                frame[ii] = np.append(dist,np.repeat(1E5, overhead[i][ii]))
+            newchi[i] = frame.T
+
+    ####### Create normalize probablity marginalized over tau
+    P = np.exp(-newchi.T.astype(np.float128) / 2)
+
+    prob = np.trapz(P, ultau, axis=2)
+    C = np.trapz(np.trapz(prob, age, axis=1), metal)
+
+    prob /= C
+
+    #### Get Z and t posteriors
+
+    PZ = np.trapz(prob, age, axis=1)
+    Pt = np.trapz(prob.T, metal,axis=1)
+
+    return prob.T, PZ,Pt
+
+
 class Galaxy(object):
     def __init__(self, galaxy_id):
         self.galaxy_id = galaxy_id
