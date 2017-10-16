@@ -1118,8 +1118,6 @@ def Single_gal_fit_MCerr_bestfit_normwmean_cont_feat(spec, tau, metal, A, sim_m,
 
 def Sim_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11400,
            age_conv='../data/tau_scale_ntau.dat'):
-
-
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
     spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
 
