@@ -896,6 +896,70 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=10
 
     return
 
+
+def MC_fit_lwa(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=1000,delayed_tau = True,
+           age_conv='/fdata/scratch/vestrada78840/data/light_weight_scaling.npy'):
+    mlist = np.zeros(repeats)
+    alist = np.zeros(repeats)
+
+    ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
+    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t, delayed_tau=delayed_tau)
+
+    ###############Get model list
+    mfl = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                spec.Sim_spec(metal[i], age[ii], tau[iii])
+                mfl[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl
+
+    convtable = np.load(age_conv)
+
+    overhead = np.zeros([len(tau),metal.size]).astype(int)
+    for i in range(len(tau)):
+        for ii in range(metal.size):
+            amt=[]
+            for iii in range(age.size):
+                if age[iii] > convtable.T[i].T[ii][-1]:
+                    amt.append(1)
+            overhead[i][ii] = sum(amt)
+
+    for xx in range(repeats):
+        spec.Perturb_flux()
+
+        chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
+            [len(metal), len(age), len(tau)]).astype(np.float128).T
+
+        ######## Reshape likelihood to get average age instead of age when marginalized
+        newchi = np.zeros(chi.shape)
+
+        for i in range(len(chi)):
+            if i == 0:
+                newchi[i] = chi[i]
+            else:
+                frame = np.zeros([metal.size, age.size])
+                for ii in range(metal.size):
+                    dist = interp1d(convtable.T[i].T[ii], chi[i].T[ii])(age[:-overhead[i][ii]])
+                    frame[ii] = np.append(dist, np.repeat(1E5, overhead[i][ii]))
+                newchi[i] = frame.T
+
+        ####### Create normalize probablity marginalized over tau
+        prob = np.exp(-newchi.T.astype(np.float128) / 2)
+
+        P = np.trapz(prob, ultau, axis=2)
+        C = np.trapz(np.trapz(P, age, axis=1), metal)
+
+        #### Get Z and t posteriors
+        PZ = np.trapz(P / C, age, axis=1)
+        Pt = np.trapz(P.T / C, metal, axis=1)
+
+        mlist[xx],ml,mh = Median_w_Error_cont(PZ,metal)
+        alist[xx],ml,mh = Median_w_Error_cont(Pt,age)
+
+    np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
+
+    return
+
 #####JWST FIT
 
 def Analyze_JWST_LH(chifits, specz, metal, age, tau, age_conv='/fdata/scratch/vestrada78840/data/tau_scale_nirspec.dat'):
