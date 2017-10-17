@@ -651,118 +651,67 @@ class Gen_sim(object):
         self.nc_mfl = self.mfl / C0
 
 
-def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, minwv=7900, maxwv=11300, repeats=100,
-           age_conv='/fdata/scratch/vestrada78840/data/tau_scale_ntau.dat'):
-    bfm=np.zeros(repeats)
-    bfmnc=np.zeros(repeats)
-    bfmdf=np.zeros(repeats)
-    bfmdf2d=np.zeros(repeats)
-    bfmdf1d=np.zeros(repeats)
-    bfa=np.zeros(repeats)
-    bfanc=np.zeros(repeats)
-    bfadf=np.zeros(repeats)
-    bfadf2d=np.zeros(repeats)
-    bfadf1d=np.zeros(repeats)
+def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=1000,
+           age_conv='/fdata/scratch/vestrada78840/data/light_weight_scaling.npy'):
+
+    mlist = np.zeros(repeats)
+    nc_mlist = np.zeros(repeats)
+    alist = np.zeros(repeats)
+    nc_alist = np.zeros(repeats)
 
     ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
-    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t,minwv=minwv,maxwv=maxwv)
-
-    ###############Get indicies
-    IDF = []
-    for i in range(len(spec.gal_wv_rf)):
-        if 3800 <= spec.gal_wv_rf[i] <= 3850 or 3910 <= spec.gal_wv_rf[i] <= 4030 or 4080 <= spec.gal_wv_rf[i] <= 4125 \
-                or 4250 <= spec.gal_wv_rf[i] <= 4385 or 4515 <= spec.gal_wv_rf[i] <= 4570 or 4810 <= spec.gal_wv_rf[i]\
-                <= 4910 or 4975 <= spec.gal_wv_rf[i] <= 5055 or 5110 <= spec.gal_wv_rf[i] <= 5285:
-            IDF.append(i)
-
-    IDC = []
-    for i in range(len(spec.gal_wv_rf)):
-        if spec.gal_wv_rf[0] <= spec.gal_wv_rf[i] <= 3800 or 3850 <= spec.gal_wv_rf[i] <= 3910 or 4030 <= \
-                spec.gal_wv_rf[i] <= 4080 or 4125 <= spec.gal_wv_rf[i] <= 4250 or 4385 <= spec.gal_wv_rf[i] <= 4515 or \
-                4570 <= spec.gal_wv_rf[i] <= 4810 or 4910 <= spec.gal_wv_rf[i] <= 4975 or 5055 <= spec.gal_wv_rf[i] <= \
-                5110 or 5285 <= spec.gal_wv_rf[i] <= spec.gal_wv_rf[-1]:
-            IDC.append(i)
+    spec = Gen_sim(galaxy, specz, sim_m, sim_a, sim_t)
 
     ###############Get model list
     mfl = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
     mfl_nc = np.zeros([len(metal) * len(age) * len(tau), len(spec.gal_wv_rf)])
-    mfl_f = np.zeros([len(metal) * len(age) * len(tau), len(IDF)])
-    mfl_c = np.zeros([len(metal) * len(age) * len(tau), len(IDC)])
+
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
                 spec.Sim_spec(metal[i], age[ii], tau[iii])
                 mfl[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl
-                mfl_f[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDF]
-                mfl_c[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.mfl[IDC]
                 spec.RM_sim_spec_cont()
                 mfl_nc[i * len(age) * len(tau) + ii * len(tau) + iii] = spec.nc_mfl
 
+    convtable = np.load(age_conv)
 
-    convtau = np.array([0, 8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9.15, 9.18, 9.2,
-                        9.23, 9.26, 9.28, 9.3, 9.32, 9.34, 9.36, 9.38, 9.4, 9.41, 9.43, 9.45, 9.46, 9.48])
-    convage = np.arange(.5, 6.1, .1)
-
-    mt = [U for U in range(len(convtau)) if convtau[U] in tau]
-    ma = [U for U in range(len(convage)) if np.round(convage[U], 1) in np.round(age, 1)]
-
-    convtable = Readfile(age_conv)
-    scale = convtable[mt[0]:mt[-1] + 1, ma[0]:ma[-1] + 1]
-
-    overhead = np.zeros(len(scale)).astype(int)
-    for i in range(len(scale)):
-        amt = []
-        for ii in range(len(age)):
-            if age[ii] > scale[i][-1]:
-                amt.append(1)
-        overhead[i] = sum(amt)
+    overhead = np.zeros([len(tau),metal.size]).astype(int)
+    for i in range(len(tau)):
+        for ii in range(metal.size):
+            amt=[]
+            for iii in range(age.size):
+                if age[iii] > convtable.T[i].T[ii][-1]:
+                    amt.append(1)
+            overhead[i][ii] = sum(amt)
 
     for xx in range(repeats):
         spec.Perturb_flux()
         spec.Perturb_flux_nc()
         chi = np.sum(((spec.flx_err - mfl) / spec.gal_er) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
+            [len(metal), len(age), len(tau)]).astype(np.float128).T
         NCchi = np.sum(((spec.nc_flx_err - mfl_nc) / spec.nc_er) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
-        Fchi = np.sum(((spec.flx_err[IDF] - mfl_f) / spec.gal_er[IDF]) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
-        Cchi = np.sum(((spec.flx_err[IDC] - mfl_c) / spec.gal_er[IDC]) ** 2, axis=1).reshape(
-            [len(metal), len(age), len(tau)]).astype(
-            np.float128).T
+            [len(metal), len(age), len(tau)]).astype(np.float128).T
 
         ######## Reshape likelihood to get average age instead of age when marginalized
         newchi = np.zeros(chi.shape)
         newNCchi = np.zeros(NCchi.shape)
-        newCchi = np.zeros(Cchi.shape)
-        newFchi = np.zeros(Fchi.shape)
 
-        for i in range(len(Cchi)):
-            if i == 0:
-                newchi[i] = chi[i]
-                newNCchi[i] = NCchi[i]
-                newCchi[i] = Cchi[i]
-                newFchi[i] = Fchi[i]
-            else:
-                frame = interp2d(metal, scale[i], chi[i])(metal, age[:-overhead[i]])
-                newchi[i] = np.append(frame, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
+        for i in range(len(chi)):
+            frame = np.zeros([metal.size, age.size])
+            NCframe = np.zeros([metal.size, age.size])
+            for ii in range(metal.size):
+                dist = interp1d(convtable.T[i].T[ii], chi[i].T[ii])(age[:-overhead[i][ii]])
+                NCdist = interp1d(convtable.T[i].T[ii], NCchi[i].T[ii])(age[:-overhead[i][ii]])
+                frame[ii] = np.append(dist, np.repeat(1E5, overhead[i][ii]))
+                NCframe[ii] = np.append(NCdist, np.repeat(1E5, overhead[i][ii]))
+            newchi[i] = frame.T
+            newNCchi[i] = NCframe.T
 
-                ncframe = interp2d(metal, scale[i], NCchi[i])(metal, age[:-overhead[i]])
-                newNCchi[i] = np.append(ncframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
-
-                cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
-                newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
-
-                fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
-                newFchi[i] = np.append(fframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)
         ncprob = np.exp(-newNCchi.T.astype(np.float128) / 2)
-        cprob = np.exp(-newCchi.T.astype(np.float128) / 2)
-        fprob = np.exp(-newFchi.T.astype(np.float128) / 2)
 
         P = np.trapz(prob, ultau, axis=2)
         C = np.trapz(np.trapz(P, age, axis=1), metal)
@@ -770,26 +719,6 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
         Pnc = np.trapz(ncprob, ultau, axis=2)
         Cnc = np.trapz(np.trapz(Pnc, age, axis=1), metal)
 
-        Pc = np.trapz(cprob, ultau, axis=2)
-        Cc = np.trapz(np.trapz(Pc, age, axis=1), metal)
-        Pcm = np.trapz(Pc, age, axis=1) / Cc
-        Pca = np.trapz(Pc.T, metal, axis=1)/ Cc
-
-        Pf = np.trapz(fprob, ultau, axis=2)
-        Cf = np.trapz(np.trapz(Pf, age, axis=1), metal)
-        Pfm = np.trapz(Pf, age, axis=1)/ Cf
-        Pfa = np.trapz(Pf.T, metal, axis=1)/ Cf
-        ########
-
-        comb_prob = cprob / Cc * fprob / Cf
-
-        df_post = np.trapz(comb_prob, ultau, axis=2)
-        C0 = np.trapz(np.trapz(df_post, age, axis=1), metal)
-        df_post /= C0
-
-        comb_prob2d = Pc / Cc * Pf / Cf
-        C2d = np.trapz(np.trapz(comb_prob2d, age, axis=1), metal)
-        comb_prob2d /= C2d
 
         #### Get Z and t posteriors
         PZ = np.trapz(P / C, age, axis=1)
@@ -798,31 +727,15 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, mi
         PZnc = np.trapz(Pnc / Cnc, age, axis=1)
         Ptnc = np.trapz(Pnc.T / Cnc, metal, axis=1)
 
-        PZdf = np.trapz(df_post, age, axis=1)
-        Ptdf = np.trapz(df_post.T, metal, axis=1)
 
-        PZdf2d = np.trapz(comb_prob2d, age, axis=1)
-        Ptdf2d = np.trapz(comb_prob2d.T, metal, axis=1)
+        mlist[xx],ml,mh = Median_w_Error_cont(PZ,metal)
+        nc_mlist[xx],ml,mh = Median_w_Error_cont(PZnc,metal)
+        alist[xx],ml,mh = Median_w_Error_cont(Pt,age)
+        nc_alist[xx],ml,mh = Median_w_Error_cont(Ptnc,age)
 
-        PZdf1d = (Pfm * Pcm) / np.trapz((Pfm * Pcm),metal)
-        Ptdf1d = (Pfa * Pca) / np.trapz((Pfa * Pca),age)
+    np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
+    np.save('/home/vestrada78840/mcerr/' + name + 'NC', [nc_mlist, nc_alist])
 
-        bfm[xx],ml,mh = Median_w_Error_cont(PZ,metal)
-        bfmnc[xx],ml,mh = Median_w_Error_cont(PZnc,metal)
-        bfmdf[xx],ml,mh = Median_w_Error_cont(PZdf,metal)
-        bfmdf2d[xx],ml,mh = Median_w_Error_cont(PZdf2d,metal)
-        bfmdf1d[xx],ml,mh = Median_w_Error_cont(PZdf1d,metal)
-        bfa[xx],ml,mh = Median_w_Error_cont(Pt,age)
-        bfanc[xx],ml,mh = Median_w_Error_cont(Ptnc,age)
-        bfadf[xx],ml,mh = Median_w_Error_cont(Ptdf,age)
-        bfadf2d[xx],ml,mh = Median_w_Error_cont(Ptdf2d,age)
-        bfadf1d[xx],ml,mh = Median_w_Error_cont(Ptdf1d,age)
-
-    np.save('/home/vestrada78840/mcerr/' + name, [bfm, bfa])
-    np.save('/home/vestrada78840/mcerr/' + name + 'NC', [bfmnc, bfanc])
-    np.save('/home/vestrada78840/mcerr/' + name + 'DF3d', [bfmdf, bfadf])
-    np.save('/home/vestrada78840/mcerr/' + name + 'DF2d', [bfmdf2d, bfadf2d])
-    np.save('/home/vestrada78840/mcerr/' + name + 'DF1d', [bfmdf1d, bfadf1d])
 
     return
 
@@ -934,14 +847,11 @@ def MC_fit_lwa(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeat
         newchi = np.zeros(chi.shape)
 
         for i in range(len(chi)):
-            if i == 0:
-                newchi[i] = chi[i]
-            else:
-                frame = np.zeros([metal.size, age.size])
-                for ii in range(metal.size):
-                    dist = interp1d(convtable.T[i].T[ii], chi[i].T[ii])(age[:-overhead[i][ii]])
-                    frame[ii] = np.append(dist, np.repeat(1E5, overhead[i][ii]))
-                newchi[i] = frame.T
+            frame = np.zeros([metal.size, age.size])
+            for ii in range(metal.size):
+                dist = interp1d(convtable.T[i].T[ii], chi[i].T[ii])(age[:-overhead[i][ii]])
+                frame[ii] = np.append(dist, np.repeat(1E5, overhead[i][ii]))
+            newchi[i] = frame.T
 
         ####### Create normalize probablity marginalized over tau
         prob = np.exp(-newchi.T.astype(np.float128) / 2)

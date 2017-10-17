@@ -1359,14 +1359,14 @@ def Analyze_LH_lwa(chifits, specz, metal, age, tau, age_conv='../data/light_weig
     newchi = np.zeros(chi.shape)
 
     for i in range(len(chi)):
-        if i == 0:
-            newchi[i] = chi[i]
-        else:
-            frame = np.zeros([metal.size,age.size])
-            for ii in range(metal.size):
-                dist = interp1d(convtable.T[i].T[ii],chi[i].T[ii])(age[:-overhead[i][ii]])
-                frame[ii] = np.append(dist,np.repeat(1E5, overhead[i][ii]))
-            newchi[i] = frame.T
+        # if i == 0:
+        #     newchi[i] = chi[i]
+        # else:
+        frame = np.zeros([metal.size,age.size])
+        for ii in range(metal.size):
+            dist = interp1d(convtable.T[i].T[ii],chi[i].T[ii])(age[:-overhead[i][ii]])
+            frame[ii] = np.append(dist,np.repeat(1E5, overhead[i][ii]))
+        newchi[i] = frame.T
 
     ####### Create normalize probablity marginalized over tau
     P = np.exp(-newchi.T.astype(np.float128) / 2)
