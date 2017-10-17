@@ -619,10 +619,11 @@ class Galaxy_sim(object):
 
 """Single Galaxy"""
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, pad=100, minwv = 7900, maxwv = 11300):
+    def __init__(self, galaxy_id, redshift, pad=100, delayed = True,minwv = 7900, maxwv = 11300):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.pad = pad
+        self.delayed = delayed
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
@@ -680,7 +681,10 @@ class Gen_spec(object):
 
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
-        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        if self.delayed == True:
+            model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
+        else:
+            model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
