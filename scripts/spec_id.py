@@ -3639,3 +3639,23 @@ def MC_fit_jwst(sim_spec, metal, age, tau, name, repeats=100, age_conv='../data/
     np.save('../mcerr/' + name, [mlist, alist])
 
     return
+
+
+#####TEST
+
+def Leave_one_out(dist, x):
+    Y = np.zeros(x.size)
+    for i in range(len(dist)):
+        Y += dist[i]
+    Y /= np.trapz(Y, x)
+
+    w = np.arange(.01, 2.01, .01)
+    weights = np.zeros(len(dist))
+    for i in range(len(dist)):
+        Ybar = np.zeros(x.size)
+        for ii in range(len(dist)):
+            if i != ii:
+                Ybar += dist[ii]
+        Ybar /= np.trapz(Ybar, x)
+        weights[i] = np.sum((Ybar - Y) ** 2) ** -1
+    return weights
