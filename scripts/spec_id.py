@@ -1,6 +1,7 @@
 __author__ = 'vestrada'
 
 import numpy as np
+from numpy.linalg import inv
 from scipy.interpolate import interp1d, interp2d
 from astropy.cosmology import Planck13 as cosmo
 import sympy as sp
@@ -3641,7 +3642,7 @@ def MC_fit_jwst(sim_spec, metal, age, tau, name, repeats=100, age_conv='../data/
     return
 
 
-#####TEST
+#####STATS
 
 def Leave_one_out(dist, x):
     Y = np.zeros(x.size)
@@ -3659,3 +3660,42 @@ def Leave_one_out(dist, x):
         Ybar /= np.trapz(Ybar, x)
         weights[i] = np.sum((Ybar - Y) ** 2) ** -1
     return weights
+
+def Stack_posteriors(P_grid, x):
+    P_grid = np.array(P_grid)
+    W = Leave_one_out(P_grid,x)
+    top = np.zeros(P_grid.shape)
+    for i in range(W.size):
+        top[i] = W[i] * P_grid[i]
+    P =sum(top)/sum(W)
+    return P / np.trapz(P,x)
+
+def Linear_fit(x,Y,sig,new_x):
+    A=np.array([np.ones(len(x)),x]).T
+    C =np.diag(sig**2)
+    iC=inv(C)
+    b,m = np.dot(inv(np.dot(np.dot(A.T,iC),A)),np.dot(np.dot(A.T,iC),Y))
+    cov = inv(np.dot(np.dot(A.T,iC),A))
+    var_b = cov[0][0]
+    var_m = cov[1][1]
+    sig_mb = cov[0][1]
+    sig_y = np.sqrt(var_b + new_x**2*var_m + 2*new_x*sig_mb)
+    return m*new_x+b , sig_y
+
+def Bootstrap_errors_lfit(masses,metals,ers,sampling=np.arange(10,11.75,.01),its=1000):
+    l_grid = np.zeros([its,len(sampling)])
+    IDs = np.arange(len(masses))
+    for i in range(its):
+        IDn = np.random.choice(IDs,len(IDs),replace=True)
+        lvals = np.polyfit(masses[IDn],np.log10(metals[IDn]/.019),1,w = 1/ers[IDn]**2)
+        lfit = np.polyval(lvals,sampling)
+        l_grid[i] = lfit
+        
+    m_fit = np.mean(l_grid,axis=0)
+    low_ers = np.zeros(len(samp))
+    hi_ers = np.zeros(len(samp))
+    
+    for i in range(len(l_grid.T)):
+        low_ers[i] = np.sort(l_grid.T[i])[150]
+        hi_ers[i] = np.sort(l_grid.T[i])[830]
+    return low_ers,hi_ers, m_fit
