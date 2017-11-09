@@ -3699,3 +3699,10 @@ def Bootstrap_errors_lfit(masses,metals,ers,sampling=np.arange(10,11.75,.01),its
         low_ers[i] = np.sort(l_grid.T[i])[150]
         hi_ers[i] = np.sort(l_grid.T[i])[830]
     return low_ers,hi_ers, m_fit
+
+def Gen_grid(DB,param):
+    grid=[]
+    for i in DB.index:
+        x,Px = np.load('../chidat/%s_dtau_%s_pos_lwa.npy' % (DB['gids'][i],param))
+        grid.append(Px)
+    return np.array(grid)
