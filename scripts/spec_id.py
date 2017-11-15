@@ -1916,7 +1916,7 @@ class Galaxy_set(object):
 
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100):
+    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11400, pad=100):
         import pysynphot as S
         self.galaxy_id = galaxy_id
         self.redshift = redshift
@@ -2061,10 +2061,12 @@ class Gen_sim(object):
     def Perturb_flux_nc(self):
         self.nc_flx_err = np.abs(self.nc_fl + np.random.normal(0, self.nc_er))
 
+
     def Perturb_both(self):
         one_sig_pert = np.random.normal(0, np.ones(len(self.gal_er)))
         self.flx_err = np.abs(self.fl + one_sig_pert * self.gal_er)
         self.nc_flx_err = np.abs(self.nc_fl + one_sig_pert * self.nc_er)
+
 
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
