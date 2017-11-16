@@ -88,9 +88,9 @@ def Get_flux(FILE):
     f = f[INDEX]
     e = e[INDEX]
 
-    for i in range(len(f)):
-        if f[i] < 0:
-            f[i] = 0
+#    for i in range(len(f)):
+#        if f[i] < 0:
+#            f[i] = 0
 
     return w, f, e
 
@@ -1988,7 +1988,7 @@ class Gen_sim(object):
 
         ## create basis model for sim
 
-        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (self.metal, self.age, self.tau)
+        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt%s_spec.npy' % (self.metal, self.age, self.tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -2071,7 +2071,7 @@ class Gen_sim(object):
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
 
-        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -3708,3 +3708,71 @@ def Gen_grid(DB,param):
         x,Px = np.load('../chidat/%s_dtau_%s_pos_lwa.npy' % (DB['gids'][i],param))
         grid.append(Px)
     return np.array(grid)
+
+##test
+
+def Mean_stack(spec_list):
+    wv,fl,er = Get_flux(spec_list[0])
+    wv = wv[2:-3]
+    # Define grids used for stacking
+    flgrid = np.zeros([len(spec_list), len(wv)])
+    errgrid = np.zeros([len(spec_list), len(wv)])
+
+    # Get wv,fl,er for each spectra
+    for i in range(len(spec_list)):
+        wave, flux, error = Get_flux(spec_list[i])
+        flgrid[i] = interp1d(wave, flux)(wv)
+        errgrid[i] = interp1d(wave, error)(wv)
+
+    ################
+    flgrid = np.transpose(flgrid)
+    errgrid = np.transpose(errgrid)
+    weigrid = errgrid ** (-2)
+    infmask = np.isinf(weigrid)
+    ################
+    stack, err = np.zeros([2, len(wv)])
+    for i in range(len(wv)):
+        stack[i] = np.sum(flgrid[i] * weigrid[[i]]) / (np.sum(weigrid[i]))
+        err[i] = 1 / np.sqrt(np.sum(weigrid[i]))     
+    return wv, stack, err
+
+def Median_stack(spec_list):
+    wv,fl,er = Get_flux(spec_list[0])
+    wv = wv[2:-3]
+    # Define grids used for stacking
+    flgrid = np.zeros([len(spec_list), len(wv)])
+
+    # Get wv,fl,er for each spectra
+    for i in range(len(spec_list)):
+        wave, flux, error = Get_flux(spec_list[i])
+        flgrid[i] = interp1d(wave, flux)(wv)
+    ################
+    flgrid = np.transpose(flgrid)
+    ################
+    stack = np.zeros(len(wv))
+    for i in range(len(wv)):
+        stack[i] = np.median(flgrid[i])
+        
+    l_grid = np.zeros([1000,len(wv)])
+    IDs = np.arange(len(spec_list))
+    for x in range(1000):
+        IDn = np.random.choice(IDs,len(IDs),replace=True)
+        bs_flgrid = np.zeros([len(spec_list), len(wv)])
+
+        # Get wv,fl,er for each spectra
+        for i in range(len(spec_list)):
+            bs_wave, bs_flux, bs_error = Get_flux(spec_list[IDn[i]])
+            bs_flgrid[i] = interp1d(bs_wave, bs_flux)(wv)
+        ################
+        bs_flgrid = np.transpose(bs_flgrid)
+        ################
+        bs_stack = np.zeros(len(wv))
+        for i in range(len(wv)):
+            bs_stack[i] = np.median(bs_flgrid[i])
+        l_grid[x] = bs_stack
+    
+    err = np.zeros(len(wv))
+    for i in range(len(wv)):
+        err[i] = np.std(l_grid.T[i])
+    
+    return wv, stack, err
