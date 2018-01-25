@@ -3776,3 +3776,262 @@ def Median_stack(spec_list):
         err[i] = np.std(l_grid.T[i])
     
     return wv, stack, err
+
+"""Proposal fit 2D"""
+
+class Gen_spec_2d(object):
+    def __init__(self, stack_2d, stack_2d_error, grism_flt, direct_flt, redshift):
+        self.stack_2d = stack_2d
+        self.stack_2d_error = stack_2d_error
+        self.grism = grism_flt
+        self.direct = direct_flt
+        self.redshift = redshift
+
+        """ 
+        self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
+                         will tell Grizli the PA
+        **
+        self.galaxy_id - used to id galaxy and import spectra
+        **
+        self.pad - Grizli uses this to add extra pixels to the edge of an image to account for galaxies near the 
+                   edge, 100 is usually enough
+        **
+        self.beam - information used to make models
+        **
+        self.wv - output wavelength array of simulated spectra
+        **
+        self.fl - output flux array of simulated spectra
+        """
+
+        self.gal = np.load(self.stack_2d)
+        self.err = np.load(self.stack_2d_error)
+        
+        flt = grizli.model.GrismFLT(grism_file= self.grism, 
+                                direct_file= self.direct,
+                                pad=200, ref_file=None, ref_ext=0, 
+                                seg_file='../../../Clear_data/goodss_mosaic/goodss_3dhst.v4.0.F160W_seg.fits',
+                                shrink_segimage=False)
+
+        ref_cat = Table.read('../../../Clear_data/goodss_mosaic/goodss_3dhst.v4.3.cat', format='ascii')
+        sim_cat = flt.blot_catalog(ref_cat, sextractor=False)
+
+        id = 39170
+
+        x0 = ref_cat['x'][39169]+1
+        y0 = ref_cat['y'][39169]+1
+
+        mag =-2.5*np.log10(ref_cat['f_F850LP']) + 25
+        keep = mag < 22
+
+        flt.compute_full_model(ids=ref_cat['id'][keep],verbose=False, 
+                               mags=mag[keep])
+
+        ### Get the beams/orders
+        beam = flt.object_dispersers[id]['A'] # can choose other orders if available
+        beam.compute_model()
+
+        ### BeamCutout object
+        self.co = grizli.model.BeamCutout(flt, beam, conf=flt.conf)
+
+    def Sim_spec(self, metal, age, tau):
+        import pysynphot as S
+        
+        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
+   
+        wave, fl = np.load(model)
+        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
+        spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
+  
+        self.model = self.co.beam.compute_model(spectrum_1d=[spec.wave, spec.flux], 
+                                           in_place=False).reshape(self.co.beam.sh_beam)
+
+        adjmodel = np.append(np.zeros([4,len(self.model)]),self.model.T[:-4], axis=0).T
+        
+        rs = self.gal.shape[0]*self.gal.shape[1]
+        C = Scale_model(self.gal.reshape(rs),self.err.reshape(rs),adjmodel.reshape(rs))
+    
+        self.sim = adjmodel*C
+        
+def Analyze_2D(chifits, specz, metal, age, tau, age_conv='../data/light_weight_scaling.npy'):
+    ####### Get maximum age
+    max_age = Oldest_galaxy(specz)
+
+    ####### Read in file
+    chi = np.load(chifits).T
+
+    chi[:, len(age[age <= max_age]):, :] = 1E1
+
+    ####### Get scaling factor for tau reshaping
+    ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
+
+    convtable = np.load(age_conv)
+
+    overhead = np.zeros([len(tau),metal.size]).astype(int)
+    for i in range(len(tau)):
+        for ii in range(metal.size):
+            amt=[]
+            for iii in range(age.size):
+                if age[iii] > convtable.T[i].T[ii][-1]:
+                    amt.append(1)
+            overhead[i][ii] = sum(amt)
+
+    ######## Reshape likelihood to get average age instead of age when marginalized
+    newchi = np.zeros(chi.shape)
+
+    for i in range(len(chi)):
+        frame = np.zeros([metal.size, age.size])
+        for ii in range(metal.size):
+            dist = interp1d(convtable.T[i].T[ii], chi[i].T[ii])(age[:-overhead[i][ii]])
+            frame[ii] = np.append(dist, np.repeat(1E5, overhead[i][ii]))
+        newchi[i] = frame.T
+
+
+    ####### Create normalize probablity marginalized over tau
+    P = np.exp(-newchi.T.astype(np.float128) / 2)
+
+    prob = np.trapz(P, ultau, axis=2)
+    C = np.trapz(np.trapz(prob, age, axis=1), metal)
+
+    prob /= C
+
+    #### Get Z and t posteriors
+
+    PZ = np.trapz(prob, age, axis=1)
+    Pt = np.trapz(prob.T, metal,axis=1)
+
+    return prob.T, PZ,Pt
+        
+def Single_gal_fit_full_2d(metal, age, tau, specz,stack_2d, stack_2d_error, grism_flt, direct_flt , name):
+    #############Read in spectra#################
+    spec = Gen_spec_2d(stack_2d, stack_2d_error, grism_flt, direct_flt, specz)
+
+    #############Prep output files: 1-full, 2-cont, 3-feat###############
+    chifile1 = '../chidat/%s_chidata' % name
+
+
+    ##############Create chigrid and add to file#################
+    chigrid1 = np.zeros([len(metal),len(age),len(tau)])
+
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                spec.Sim_spec(metal[i], age[ii], tau[iii])
+                chigrid1[i][ii][iii] = np.sum(((spec.gal - spec.sim)/spec.err)**2)
+
+    ################Write chigrid file###############
+    np.save(chifile1,chigrid1)
+
+    print 'Done!'
+    return
+
+"""Proposal spec z"""
+
+class Gen_spec_z(object):
+    def __init__(self, spec_file, pad=100, minwv = 7900, maxwv = 11400):
+        self.galaxy = spec_file
+        self.pad = pad
+
+        """ 
+        self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
+                         will tell Grizli the PA
+        **
+        self.galaxy_id - used to id galaxy and import spectra
+        **
+        self.pad - Grizli uses this to add extra pixels to the edge of an image to account for galaxies near the 
+                   edge, 100 is usually enough
+        **
+        self.beam - information used to make models
+        **
+        self.wv - output wavelength array of simulated spectra
+        **
+        self.fl - output flux array of simulated spectra
+        """
+
+
+        gal_wv, gal_fl, gal_er = np.load(self.galaxy)
+        self.flt_input = '../data/galaxy_flts/n21156_flt.fits'
+
+        IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
+
+        self.gal_wv_rf = gal_wv[IDX] / (1 + 1.251)
+        self.gal_wv = gal_wv[IDX]
+        self.gal_fl = gal_fl[IDX]
+        self.gal_er = gal_er[IDX]
+
+        self.gal_wv_rf = self.gal_wv_rf[self.gal_fl > 0 ]
+        self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
+        self.gal_er = self.gal_er[self.gal_fl > 0 ]
+        self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
+
+        ## Create Grizli model object
+        sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
+                                         direct_file=self.flt_input,
+                                         force_grism='G102', pad=self.pad)
+
+        sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
+
+        keep = sim_g102.catalog['mag'] < 29
+        c = sim_g102.catalog
+
+        sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
+
+        ## Grab object near the center of the image
+        dr = np.sqrt((sim_g102.catalog['x_flt'] - 579) ** 2 + (sim_g102.catalog['y_flt'] - 522) ** 2)
+        ix = np.argmin(dr)
+        id = sim_g102.catalog['id'][ix]
+
+        ## Spectrum cutouts
+        self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
+
+    def Sim_spec(self, metal, age, redshift):
+        import pysynphot as S
+        
+        model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt8.0_spec.npy' % (metal, age)
+
+        wave, fl = np.load(model)
+        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
+        spec = spec.redshift(redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
+        spec.convert('flam')
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+
+        ifl = interp1d(w, f)(self.gal_wv)
+
+        ## Get sensitivity function
+        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
+        filt = interp1d(fwv, ffl)(self.gal_wv)
+
+        adj_ifl = ifl /filt
+
+        C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
+
+        self.fl = C * adj_ifl
+
+
+def Specz_fit_2(spec_file, metal, age, rshift, name):
+    #############initialize spectra#################
+    spec = Gen_spec_z(spec_file)
+
+    #############Prep output file###############
+    chifile = '../rshift_dat/%s_z_fit' % name
+
+    ##############Create chigrid and add to file#################
+    mfl = np.zeros([len(metal)*len(age)*len(rshift),len(spec.gal_wv)])
+    for i in range(len(metal)):
+        for ii in range(len(age)):
+            for iii in range(len(rshift)):
+                spec.Sim_spec(metal[i], age[ii], rshift[iii])
+                mfl[i*len(age)*len(rshift)+ii*len(rshift)+iii]=spec.fl
+    chigrid = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(rshift)]).\
+        astype(np.float128)
+
+    np.save(chifile,chigrid)
+    ###############Write chigrid file###############
+    Analyze_specz(chifile + '.npy', rshift, metal, age, name)
+
+    print 'Done!'
+
+    return
