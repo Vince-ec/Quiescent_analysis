@@ -224,6 +224,33 @@ def Median_w_Error(Pofx, x):
 
     return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
 
+def Median_w_Error_95(Pofx, x):
+    iP = interp1d(x, Pofx)
+    ix = np.linspace(x[0], x[-1], 500)
+
+    lerr = 0
+    herr = 0
+
+    for i in range(len(ix)):
+        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
+        if lerr == 0:
+            if e >= .025:
+                lerr = ix[i]
+        if herr == 0:
+            if e >= .975:
+                herr = ix[i]
+                break
+
+    med = 0
+
+    for i in range(len(x)):
+        e = np.trapz(Pofx[0:i + 1], x[0:i + 1])
+        if med == 0:
+            if e >= .5:
+                med = x[i]
+                break
+
+    return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
 
 def Median_w_Error_cont(Pofx, x):
     ix = np.linspace(x[0], x[-1], 500)
