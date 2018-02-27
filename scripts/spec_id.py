@@ -1364,7 +1364,7 @@ def Analyze_LH(chifits, specz, metal, age, tau, age_conv='../data/tau_scale_ntau
     return prob.T, PZ,Pt
 
 
-def Analyze_LH_lwa(chifits, specz, metal, age, tau, age_conv='../data/light_weight_scaling.npy'):
+def Analyze_LH_lwa(chifits, specz, metal, age, tau, age_conv='../data/light_weight_scaling_3.npy'):
     ####### Get maximum age
     max_age = Oldest_galaxy(specz)
 

@@ -280,3 +280,11 @@ def B_factor(chi_file1,chi_file2, specz, metal_1,metal_2, age, tau):
     BF = 2*np.log(FS/BC)
     
     return BF
+
+def B_factor_2(chi_file1,chi_file2, specz, metal_1,metal_2, age, tau_1, tau_2):
+    FS = B_evidence(chi_file1, specz,metal_1,age,tau_1,age_conv='../data/light_weight_scaling_3.npy')
+    BC = B_evidence(chi_file2, specz,metal_2,age,tau_2,age_conv='../BE/BC_age_conv.npy')
+
+    BF = 2*np.log(FS/BC)
+    
+    return BF
