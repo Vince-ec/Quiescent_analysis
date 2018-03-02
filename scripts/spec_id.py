@@ -19,6 +19,13 @@ from glob import glob
 from time import time
 import seaborn as sea
 
+import rpy2
+import rpy2.robjects as robjects
+from rpy2.robjects.packages import importr
+from rpy2.robjects import pandas2ri
+R = robjects.r
+pandas2ri.activate()
+
 sea.set(style='white')
 sea.set(style='ticks')
 sea.set_style({"xtick.direction": "in", "ytick.direction": "in"})
@@ -3698,6 +3705,34 @@ def Stack_posteriors(P_grid, x):
         top[i] = W[i] * P_grid[i]
     P =sum(top)/sum(W)
     return P / np.trapz(P,x)
+
+def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 1000):
+    ksmooth = importr('KernSmooth')
+    del_x = x_o[1] - x_o[0]
+
+    ### resample
+    x = np.linspace(x_o[0],x_o[-1],resampling)
+    grid = np.zeros([len(grid_o),x.size])    
+    for i in range(len(grid_o)):
+        grid[i] = interp1d(x_o,grid_o[i])(x)
+   
+    ### select bandwidth
+    H = ksmooth.dpik(x)
+    ### stack posteriors w/ weights
+    stkpos = Stack_posteriors(grid,x)
+    ### initialize prior as flat
+    Fx = np.ones(stkpos.size)
+    
+    for i in range(iterations):
+        fnew = Fx * stkpos / np.trapz(Fx * stkpos,x)
+        fx = ksmooth.locpoly(x,fnew,bandwidth = H)
+        X = np.array(fx[0])
+        iFX = np.array(fx[1])
+        Fx = interp1d(X,iFX)(x)
+
+    Fx[Fx<0]=0
+    Fx = Fx/np.trapz(Fx,x)
+    return Fx,x
 
 def Linear_fit(x,Y,sig,new_x):
     A=np.array([np.ones(len(x)),x]).T
