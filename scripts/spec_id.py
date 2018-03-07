@@ -3706,7 +3706,7 @@ def Stack_posteriors(P_grid, x):
     P =sum(top)/sum(W)
     return P / np.trapz(P,x)
 
-def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 1000):
+def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 250):
     ksmooth = importr('KernSmooth')
     del_x = x_o[1] - x_o[0]
 
