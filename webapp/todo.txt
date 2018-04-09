@@ -1,0 +1,3 @@
+# todo add table grism z, y band, j band, stellar mass, ra, dec look z fourge page
+# todo make everything fit on one page
+# todo clickable plots which will enlarge plots
