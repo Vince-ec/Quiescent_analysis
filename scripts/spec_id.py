@@ -757,6 +757,45 @@ class Gen_spec(object):
         self.Sim_spec(metal, age, tau_array[np.argmin(chi)])
 
 
+    def Sim_spec_BC03(self, metal, age, tau):
+        import pysynphot as S
+        model = '../../../bc03_models_for_fit/bc03_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
+
+        wave, fl = np.load(model)
+        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
+        spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
+        spec.convert('flam')
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+
+        ifl = interp1d(w, f)(self.gal_wv)
+
+        ## Get sensitivity function
+        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
+        filt = interp1d(fwv, ffl)(self.gal_wv)
+
+        adj_ifl = ifl /filt
+
+        C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
+
+        self.fl_bc = C * adj_ifl
+
+    def Median_spec_BC03(self, metal, age, tau_array):
+
+        chi = []
+        for i in range(len(tau_array)):
+            self.Sim_spec_BC03(metal, age, tau_array[i])
+            chi.append(Identify_stack(self.gal_fl, self.gal_er, self.fl))
+
+
+        self.bfmetal_bc = metal
+        self.bfage_bc = age
+        self.bftau_bc = tau_array[np.argmin(chi)]
+        self.Sim_spec_BC03(metal, age, tau_array[np.argmin(chi)])
+        
 def Median_model(galaxy, rshift, bfmetal, bfage, tau):
     spec = Gen_spec(galaxy,rshift)
 
