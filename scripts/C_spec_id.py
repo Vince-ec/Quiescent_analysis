@@ -11,6 +11,14 @@ def Scale_model(D, sig, M):
     C = np.sum(((D * M) / sig ** 2)) / np.sum((M ** 2 / sig ** 2))
     return C
 
+def Calzetti(Av,lam):
+    lam = lam * 1E-4
+    Rv=4.05
+    k = 2.659*(-2.156 +1.509/(lam) -0.198/(lam**2) +0.011/(lam**3)) + Rv
+    cal = 10**(-0.4*k*Av/Rv)
+        
+    return cal
+
 
 def Oldest_galaxy(z):
     return cosmo.age(z).value
@@ -212,12 +220,15 @@ def Specz_fit(galaxy, metal, age, rshift, name):
 #####GALAXY FIT
 
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, minwv = 7900, maxwv = 11300, pad=100, delayed_tau = False):
+    def __init__(self, galaxy_id, redshift, Av = 0, attenuate = False, 
+                 minwv = 7900, maxwv = 11300, pad=100, delayed_tau = True):
         self.galaxy_id = galaxy_id
         self.redshift = redshift
         self.pad = pad
         self.delayed_tau = delayed_tau
-
+        self.attenuate = attenuate
+        self.Av = Av
+            
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
                          will tell Grizli the PA
@@ -273,6 +284,11 @@ class Gen_spec(object):
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
 
+        self.atten=1
+        
+        if self.attenuate ==True:
+            self.atten = Calzetti(Av, self.gal_wv_rf)
+        
     def Sim_spec(self, metal, age, tau):
         if self.delayed_tau == False:
             model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
@@ -296,16 +312,17 @@ class Gen_spec(object):
         fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
         filt = interp1d(fwv, ffl)(self.gal_wv)
 
-        adj_ifl = ifl /filt
+        adj_ifl = self.atten * ifl /filt
 
         C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
 
         self.fl = C * adj_ifl
 
 
-def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11400, delayed_tau = False):
+def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, av = 0, atten = False,
+                        minwv = 7900, maxwv = 11400, delayed_tau = True):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv, delayed_tau = delayed_tau)
+    spec = Gen_spec(galaxy, specz, Av = av, attenuate = atten, minwv = minwv, maxwv = maxwv, delayed_tau = delayed_tau)
 
     if galaxy == 'n21156' or galaxy == 'n38126':
         IDer = []
@@ -464,7 +481,7 @@ def Analyze_LH_cont_feat(contfits, featfits, specz, metal, age, tau,
 #####MC FIT
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100, delayed_tau = False):
+    def __init__(self, galaxy_id, redshift, metal, age, tau, minwv=7900, maxwv=11300, pad=100, delayed_tau = True):
         import pysynphot as S
         self.galaxy_id = galaxy_id
         self.redshift = redshift
@@ -621,6 +638,7 @@ class Gen_sim(object):
             model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
         else :
             model = '../../../../fdata/scratch/vestrada78840/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
+
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
         spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
@@ -735,8 +753,6 @@ def MC_fit_methods(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, re
 
     np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
     np.save('/home/vestrada78840/mcerr/' + name + 'NC', [nc_mlist, nc_alist])
-
-
     return
 
 
@@ -808,7 +824,6 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=10
     np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
 
     return
-
 
 def MC_fit_lwa(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=1000,delayed_tau = True,
            age_conv='/fdata/scratch/vestrada78840/data/light_weight_scaling.npy'):
