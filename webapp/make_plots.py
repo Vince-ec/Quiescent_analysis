@@ -128,7 +128,7 @@ def Get_flux(FILE):
 
 
 def Plot_1d(DF,idx, position):
-    if os.path.isfile('/Volumes/Vince_homedrive/Extractions/Plots/%s/1D/stack/%s_stack.png' % (position, DF['id'][idx])):
+    if os.path.isfile('/Volumes/Vince_research/Extractions/Plots/%s/1D/stack/%s_stack.png' % (position, DF['id'][idx])):
         dummy = 1
     else:
         if len(DF['1D'][idx]) > 0:
@@ -136,24 +136,24 @@ def Plot_1d(DF,idx, position):
             viable = False
             
             for u in range(len(file_list)):
-#                name = file_list[u].split('/')[-1].split('_')[0]
+                name = file_list[u].split('/')[-1].split('_')[0]
 
                 wv,fl,er = Get_flux(file_list[u])
                 
                 if len(wv) > 10:
                     viable = True
                 
- #               IDX = [U for U in range(len(wv)) if er[U] < 2*np.median(fl)]
+                IDX = [U for U in range(len(wv)) if er[U] < 2*np.median(fl)]
 
-#                plt.figure(figsize=[12,6])
-#                plt.errorbar(wv[IDX]*1E-4,fl[IDX]*1E18,er[IDX]*1E18,fmt='o',lw=2,ms=4)
-#                plt.xlabel('$\lambda$ $(\mu m)$',fontsize=20)
-#                plt.ylabel('F$_\lambda$ $(10^{-18} erg/ s/ cm^{2}/ \\rm \AA)$',fontsize=20)
-#                plt.tick_params(axis='both', which='major', labelsize=15)
-#                plt.title('%s_%s' % (name,SDF['id'][idx]),fontsize=20)
-#                plt.xlim(.8,1.14)
-#                plt.savefig('/Volumes/Vince_homedrive/Extractions/Plots/%s/1D/spec/%s_%s_spec.png' % (position, name, DF['id'][idx]))    
-#                plt.close()
+                plt.figure(figsize=[12,6])
+                plt.errorbar(wv[IDX]*1E-4,fl[IDX]*1E18,er[IDX]*1E18,fmt='o',lw=2,ms=4)
+                plt.xlabel('$\lambda$ $(\mu m)$',fontsize=20)
+                plt.ylabel('F$_\lambda$ $(10^{-18} erg/ s/ cm^{2}/ \\rm \AA)$',fontsize=20)
+                plt.tick_params(axis='both', which='major', labelsize=15)
+                plt.title('%s_%s' % (name,SDF['id'][idx]),fontsize=20)
+                plt.xlim(.8,1.14)
+                plt.savefig('/Volumes/Vince_research/Extractions/Plots/%s/1D/spec/%s_%s_spec.png' % (position, name, DF['id'][idx]))    
+                plt.close()
             
             if viable == True:
             
@@ -168,12 +168,12 @@ def Plot_1d(DF,idx, position):
                 plt.ylabel('F$_\lambda$ $(10^{-18} erg/ s/ cm^{2}/ \\rm \AA)$',fontsize=20)
                 plt.tick_params(axis='both', which='major', labelsize=15)
                 plt.xlim(.8,1.14)
-                plt.savefig('/Volumes/Vince_homedrive/Extractions/Plots/%s/1D/stack/%s_stack.png' % (position, DF['id'][idx]))
+                plt.savefig('/Volumes/Vince_research/Extractions/Plots/%s/1D/stack/%s_stack.png' % (position, DF['id'][idx]))
                 plt.close()
                 
 
-SDF = pd.read_pickle('south_DF.pkl')
-NDF = pd.read_pickle('north_DF.pkl')
+SDF = pd.read_pickle('south_DF_vr.pkl')
+NDF = pd.read_pickle('north_DF_vr.pkl')
 
 for i in SDF.index:
     Plot_1d(SDF,i,'South')
