@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH -J MC_fit-17
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o mfit17-%j.out
+#SBATCH -e mfit17-%j.err
+
+chmod a+x C_MC_fit.py
+
+python C_MC_fit.py 's39170' 1.082 0.019 2.2 4 5.64602527209 &
+python C_MC_fit.py 'n21156' 1.217 0.019 2.2 4 4.07000993059 &
+python C_MC_fit.py 's40862' 1.369 0.019 2.2 4 1.26480309372 &
+python C_MC_fit.py 's44042' 1.636 0.019 2.2 4 0.929249836171 &
+
+wait
+
+exit 0
