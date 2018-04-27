@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -J gt_fit-2
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o gfit2-%j.out
+#SBATCH -e gfit2-%j.err
+
+chmod a+x C_gt_3900_fit.py
+
+python C_gt_3900_fit.py 's41520' 1.603 &
+python C_gt_3900_fit.py 's41659' 1.62 &
+python C_gt_3900_fit.py 's44042' 1.611 &
+
+wait
+
+exit 0

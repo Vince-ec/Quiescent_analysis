@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH -J no_Hb-1
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o no_Hb1-%j.out
+#SBATCH -e no_Hb1-%j.err
+
+chmod a+x C_no_Hb_fit.py
+
+python C_no_Hb_fit.py 'n21156' 1.251 &
+python C_no_Hb_fit.py 's47677' 1.112 &
+python C_no_Hb_fit.py 's39170' 1.022 &
+
+wait
+
+exit 0
