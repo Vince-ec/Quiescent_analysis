@@ -36,7 +36,7 @@ class Gen_spec(object):
         gal_wv=sp[2].data['wave']
         gal_fl=sp[2].data['flux']/sp[2].data['flat']
         gal_er=sp[2].data['err']/sp[2].data['flat']
-        IDX = [U for U in range(len(gal_wv)) if 8000 < gal_wv[U] < 11400]
+        IDX = [U for U in range(len(gal_wv)) if 7900 < gal_wv[U] < 11300]
                 
         self.flt_input = '../data/galaxy_flts/%s_flt.fits' % self.galaxy_id
 
