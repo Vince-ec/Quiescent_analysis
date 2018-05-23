@@ -743,18 +743,27 @@ class Gen_spec(object):
 
         self.fl = C * adj_ifl
 
-    def Median_spec(self, metal, age, tau_array):
-
+    def Fit_lwa(self, fit_Z, fit_t, metal_array, age_array, tau_array):
+        
+        lwa_grid = np.load('../data/light_weight_scaling_3.npy')
         chi = []
+        good_age =[]
+        good_tau =[]
+        
         for i in range(len(tau_array)):
-            self.Sim_spec(metal, age, tau_array[i])
-            chi.append(Identify_stack(self.gal_fl, self.gal_er, self.fl))
+            for ii in range(age_array.size):
+                
+                lwa = lwa_grid[np.argwhere(np.round(metal_array,3) == np.round(fit_Z,3))[0][0]][ii][i]
+                
+                if (fit_t - 0.1) < lwa < (fit_t + 0.1):
+                    self.Sim_spec(fit_Z,age_array[ii],tau_array[i])
+                    chi.append(sum(((self.gal_fl - self.fl) / self.gal_er)**2))
+                    good_age.append(age_array[ii])
+                    good_tau.append(tau_array[i])
 
-
-        self.bfmetal = metal
-        self.bfage = age
-        self.bftau = tau_array[np.argmin(chi)]
-        self.Sim_spec(metal, age, tau_array[np.argmin(chi)])
+        self.bfage = np.array(good_age)[chi == min(chi)][0]
+        self.bftau = np.array(good_tau)[chi == min(chi)][0]
+        self.Sim_spec(fit_Z, self.bfage, self.bftau)    
 
 
     def Sim_spec_BC03(self, metal, age, tau):
