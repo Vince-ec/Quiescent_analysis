@@ -3,6 +3,14 @@ import Constants as C
 from Get_sensitivity import Get_Sensitivity
 from scipy.interpolate import interp1d
 
+def Sig_int(nu,er,trans,energy):
+    sig = np.zeros(len(nu)-1)
+    
+    for i in range(len(nu)-1):
+        sig[i] = (nu[i+1] - nu[i])/2 *np.sqrt(er[i]**2 * energy[i]**2 * trans[i]**2 + er[i+1]**2 * energy[i+1]**2 * trans[i+1]**2)
+    
+    return np.sum(sig) / np.trapz(trans * energy, nu)
+
 class Photometry(object):
 
     def __init__(self,wv,fl,er,filter_number):
@@ -68,23 +76,16 @@ class Photometry(object):
         bottom = np.trapz(bottom1, filtnu)
         photonu = top / bottom
 
-        top1 = Ernu * energy * self.trans
-        top = np.trapz(top1, filtnu)
-        bottom1 = self.trans * energy
-        bottom = np.trapz(bottom1, filtnu)
-        erphotonu = top / bottom
-
         tp = np.trapz(((self.trans * np.log(self.sens_wv)) / self.sens_wv), self.sens_wv)
         bm = np.trapz(self.trans / self.sens_wv, self.sens_wv)
 
         wave_eff = np.exp(tp / bm)
 
         photo = photonu * (c / (wave_eff * atocm) ** 2)
-        photoer = erphotonu * (c / (wave_eff * atocm) ** 2)
 
         self.eff_wv = wave_eff
         self.photo = photo
-        self.photo_er = photoer
+        self.photo_er = Sig_int(filtnu,Ernu,self.trans,energy) * (c / (wave_eff * atocm) ** 2)
 
     def Photo_clipped(self):
 
@@ -126,8 +127,8 @@ class Photometry(object):
 
         self.eff_wv = wave_eff
         self.photo = photo
-        self.photo_er = photoer
-
+        self.photo_er = Sig_int(filtnu,Ernu,self.trans[IDX],energy) * (c / (wave_eff * atocm) ** 2)
+        
     def Photo_model(self,mwv,mfl):
         h=C.h # planck constant erg s
         c=C.c          # speed of light cm s^-1
@@ -151,7 +152,8 @@ class Photometry(object):
         bm = np.trapz(self.trans / self.sens_wv, self.sens_wv)
 
         wave_eff = np.exp(tp / bm)
-
+        photo = photonu * (c / (wave_eff * atocm) ** 2)
+        
         self.eff_mwv = wave_eff
         self.mphoto = photo
 
