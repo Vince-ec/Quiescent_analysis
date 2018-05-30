@@ -716,10 +716,7 @@ class Gen_spec(object):
 
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
-        if self.delayed == True:
-            model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_dt%s_spec.npy' % (metal, age, tau)
-        else:
-            model = '../../../fsps_models_for_fit/fsps_spec/m%s_a%s_t%s_spec.npy' % (metal, age, tau)
+        model = '../../../fsps_models_for_fit/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(metal, age, tau)
 
         wave, fl = np.load(model)
         spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
@@ -749,7 +746,6 @@ class Gen_spec(object):
         chi = []
         good_age =[]
         good_tau =[]
-        
         for i in range(len(tau_array)):
             for ii in range(age_array.size):
                 
@@ -763,6 +759,8 @@ class Gen_spec(object):
 
         self.bfage = np.array(good_age)[chi == min(chi)][0]
         self.bftau = np.array(good_tau)[chi == min(chi)][0]
+        if self.bftau == 0.0:
+            self.bftau = int(0)
         self.Sim_spec(fit_Z, self.bfage, self.bftau)    
 
 
