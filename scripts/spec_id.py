@@ -3780,7 +3780,7 @@ def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 250):
     Fx = Fx/np.trapz(Fx,x)
     return Fx,x
 
-def Linear_fit(x,Y,sig,new_x):
+def Linear_fit(x,Y,sig,new_x,return_cov = False):
     A=np.array([np.ones(len(x)),x]).T
     C =np.diag(sig**2)
     iC=inv(C)
@@ -3790,8 +3790,11 @@ def Linear_fit(x,Y,sig,new_x):
     var_m = cov[1][1]
     sig_mb = cov[0][1]
     sig_y = np.sqrt(var_b + new_x**2*var_m + 2*new_x*sig_mb)
-    return m*new_x+b , sig_y
-
+    if return_cov == True:
+        return m*new_x+b , sig_y, cov
+    else:
+        return m*new_x+b , sig_y
+    
 def Bootstrap_errors_lfit(masses,metals,ers,sampling=np.arange(10,11.75,.01),its=1000):
     l_grid = np.zeros([its,len(sampling)])
     IDs = np.arange(len(masses))
