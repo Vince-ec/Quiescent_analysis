@@ -13,7 +13,6 @@ from astropy.io import fits
 from vtl.Readfile import Readfile
 from astropy.io import ascii
 from astropy.table import Table
-import cPickle
 import os
 from glob import glob
 from time import time
@@ -393,7 +392,7 @@ def Analyze_Stack(chifits, tau, metal, age):
 
     ####### get best fit values
     [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
+    print('Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]]))
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
@@ -434,7 +433,7 @@ def Analyze_Stack_avgage(chifits, tau, metal, age, age_conv='../data/tau_scale_n
     prob = P / C
     ####### get best fit values
     [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
+    print('Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]]))
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
@@ -500,7 +499,7 @@ def Analyze_Stack_avgage_cont_feat(contfits, featfits, tau, metal, age, age_conv
 
     ##### get best fit values
     [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
+    print('Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]]))
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
@@ -569,7 +568,7 @@ def Analyze_Stack_avgage_cont_feat_combine(cont_chifits, feat_chifits, tau, meta
     prob = P / C
     ####### get best fit values
     [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
+    print('Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]]))
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
@@ -891,7 +890,7 @@ def Single_gal_fit_full(metal, age, tau, specz, galaxy, name, minwv = 7900, maxw
     np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
 
-    print 'Done!'
+    print('Done!')
     return
 
 
@@ -916,7 +915,7 @@ def Specz_fit(galaxy, metal, age, rshift, name):
     ###############Write chigrid file###############
     Analyze_specz(chifile + '.npy', rshift, metal, age, name)
 
-    print 'Done!'
+    print('Done!')
 
     return
 
@@ -978,7 +977,7 @@ def Analyze_specz(chifits, rshift, metal, age, name):
     prob = np.array(Norm_P_specz(rshift, metal, age, dat.T)).astype(np.float128)
 
     ###### get best fit values
-    print 'Best fit specz is %s' % rshift[np.argmax(prob)]
+    print('Best fit specz is %s' % rshift[np.argmax(prob)])
 
     np.save('../rshift_dat/%s_Pofz' % name,[rshift, prob])
     return
@@ -1081,7 +1080,7 @@ def Analyze_Stack_avgage_single_gal_combine(cont_chifits, feat_chifits, speclist
     prob = P / C
     ####### get best fit values
     [idmax] = np.argwhere(prob == np.max(prob))
-    print 'Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]])
+    print('Best fit model is %s Gyr and %s Z' % (age[idmax[1]], metal[idmax[0]]))
 
     return prob.T, age[idmax[1]], metal[idmax[0]]
 
@@ -2481,9 +2480,9 @@ def MC_fit(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, name, repeats=10
                 newCchi[i] = Cchi[i]
                 newFchi[i] = Fchi[i]
             else:
-                print scale[i]
+                #print scale[i]
                 cframe = interp2d(metal, scale[i], Cchi[i])(metal, age[:-overhead[i]])
-                print cframe.shape
+                #print cframe.shape
                 newCchi[i] = np.append(cframe, np.repeat([np.repeat(1E5, len(metal))], overhead[i], axis=0), axis=0)
 
                 fframe = interp2d(metal, scale[i], Fchi[i])(metal, age[:-overhead[i]])
@@ -2549,7 +2548,7 @@ def Best_fit_model(input_file, metal, age, tau):
     chi = np.array(chi)
 
     x = np.argwhere(chi == np.min(chi))
-    print metal[x[0][0]], age[x[0][1]], tau[x[0][2]]
+    print(metal[x[0][0]], age[x[0][1]], tau[x[0][2]])
     return metal[x[0][0]], age[x[0][1]], tau[x[0][2]]
 
 
@@ -2769,7 +2768,7 @@ class Stack(object):
                                              tau[i], self.wv, self.norm_range)
             chi.append(Identify_stack(self.fl, self.er, mfl))
 
-        print [bfmetal, bfage, tau[np.argmin(chi)]]
+        print([bfmetal, bfage, tau[np.argmin(chi)]])
 
         self.bftau = tau[np.argmin(chi)]
 
@@ -3359,14 +3358,14 @@ def MC_fit_methods_test_2(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, m
         bfadf2d[xx],ml,mh = Median_w_Error_cont(Ptdf2d,age)
         bfadf1d[xx],ml,mh = Median_w_Error_cont(Ptdf1d,age)
 
-    print np.median(bfm)
-    print np.median(bfmdf)
-    print np.median(bfmdf2d)
-    print np.median(bfmdf1d)
-    print np.median(bfa)
-    print np.median(bfadf)
-    print np.median(bfadf2d)
-    print np.median(bfadf1d)
+    print(np.median(bfm))
+    print(np.median(bfmdf))
+    print(np.median(bfmdf2d))
+    print(np.median(bfmdf1d))
+    print(np.median(bfa))
+    print(np.median(bfadf))
+    print(np.median(bfadf2d))
+    print(np.median(bfadf1d))
 
     plt.figure()
     plt.subplot(121)
@@ -3474,7 +3473,7 @@ def Nirspec_fit(sim_spec, filters, metal, age, tau, name):
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
     np.save('../data/nirspec_sim_data_%s' % filters,[wv,fl,flx,er])
 
-    print 'Done!'
+    print('Done!')
     return
 
 
@@ -3530,7 +3529,7 @@ def Nirspec_feat_fit(sim_spec, z, filters, metal, age, tau, name, prism = True):
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
     np.save('../data/nirspec_sim_data_%s_ff' % filters,[wv,fl,flx,er])
 
-    print 'Done!'
+    print('Done!')
     return
 
 
@@ -3618,7 +3617,7 @@ def Nirspec_feat_fit_freescale(sim_spec, z, filters, metal, age, tau, name, pris
     np.save('../chidat/%s_t_pos' % name,[age,Pt])
     np.save('../data/nirspec_sim_data_%s' % name,[wv,fl,flx,er])
 
-    print 'Done!'
+    print('Done!')
     return
 
 
@@ -4032,7 +4031,7 @@ def Single_gal_fit_full_2d(metal, age, tau, specz,stack_2d, stack_2d_error, gris
     ################Write chigrid file###############
     np.save(chifile1,chigrid1)
 
-    print 'Done!'
+    print('Done!')
     return
 
 """Proposal spec z"""
@@ -4143,6 +4142,6 @@ def Specz_fit_2(spec_file, metal, age, rshift, name):
     ###############Write chigrid file###############
     Analyze_specz(chifile + '.npy', rshift, metal, age, name)
 
-    print 'Done!'
+    print('Done!')
 
     return
