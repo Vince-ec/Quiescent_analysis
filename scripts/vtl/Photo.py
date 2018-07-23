@@ -1,6 +1,6 @@
 import numpy as np
-import Constants as C
-from Get_sensitivity import Get_Sensitivity
+from . import Constants as C
+from .Get_sensitivity import Get_Sensitivity
 from scipy.interpolate import interp1d
 
 def Sig_int(nu,er,trans,energy):
