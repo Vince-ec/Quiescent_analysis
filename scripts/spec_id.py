@@ -8,6 +8,7 @@ import sympy as sp
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import grizli
+from grizli import model as griz_model
 import matplotlib.image as mpimg
 from astropy.io import fits
 from vtl.Readfile import Readfile
@@ -694,15 +695,18 @@ class Gen_spec(object):
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
         ## Create Grizli model object
-        sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
+        sim_g102 = griz_model.GrismFLT(grism_file='', verbose=False,
                                          direct_file=self.flt_input,
                                          force_grism='G102', pad=self.pad)
 
         sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
 
         keep = sim_g102.catalog['mag'] < 29
-        c = sim_g102.catalog
-
+        #c = sim_g102.catalog
+        c = Table.read('../data/galaxy_flts/{0}_flt.detect.cat'.format(self.galaxy_id),format='ascii')
+        sim_g102.catalog = c
+        
+        
         sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
 
         ## Grab object near the center of the image
@@ -711,7 +715,7 @@ class Gen_spec(object):
         id = sim_g102.catalog['id'][ix]
 
         ## Spectrum cutouts
-        self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id]['A'], conf=sim_g102.conf)
+        self.beam = griz_model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id][2]['A'], conf=sim_g102.conf)
 
     def Sim_spec(self, metal, age, tau):
         import pysynphot as S
