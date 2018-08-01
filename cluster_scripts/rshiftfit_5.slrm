@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH -J zfit-5
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o zfit5-%j.out
+#SBATCH -e zfit5-%j.err
+
+chmod a+x C_Specz_instruct.py
+
+python C_Specz_instruct.py 'n26673' &
+python C_Specz_instruct.py 'n32566' &
+python C_Specz_instruct.py 'n33453' &
+python C_Specz_instruct.py 'n33780' &
+
+wait
+
+exit 0
