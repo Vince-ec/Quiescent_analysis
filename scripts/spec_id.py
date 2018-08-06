@@ -74,6 +74,13 @@ def Select_range_model(wv, flux):
 
     return W, F
 
+def Calzetti(Av,lam):
+    lam = lam * 1E-4
+    Rv=4.05
+    k = 2.659*(-2.156 +1.509/(lam) -0.198/(lam**2) +0.011/(lam**3)) + Rv
+    cal = 10**(-0.4*k*Av/Rv)    
+    
+    return cal
 
 def Get_flux(FILE):
     observ = fits.open(FILE)
@@ -417,20 +424,17 @@ def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range, 
 
 """Single Galaxy"""
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, pad=100, delayed = True,minwv = 7900, maxwv = 11300):
+    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11200, shift = 1):
         self.galaxy_id = galaxy_id
+        self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
-        self.pad = pad
-        self.delayed = delayed
+        self.shift = shift
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
                          will tell Grizli the PA
         **
         self.galaxy_id - used to id galaxy and import spectra
-        **
-        self.pad - Grizli uses this to add extra pixels to the edge of an image to account for galaxies near the 
-                   edge, 100 is usually enough
         **
         self.beam - information used to make models
         **
@@ -439,11 +443,8 @@ class Gen_spec(object):
         self.fl - output flux array of simulated spectra
         """
 
-        if self.galaxy_id == 's35774':
-            maxwv = 11100
-
-        gal_wv, gal_fl, gal_er = np.load('../spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
-        self.flt_input = '../data/galaxy_flts/%s_flt.fits' % self.galaxy_id
+        gal_wv, gal_fl, gal_er = np.load(glob('../spec_stacks/*{0}*'.format(self.gid))[0])
+        self.flt_input = glob('../beams/*{0}*'.format(self.gid))[0]
 
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
@@ -457,54 +458,59 @@ class Gen_spec(object):
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
-        ## Create Grizli model object
-        sim_g102 = griz_model.GrismFLT(grism_file='', verbose=False,
-                                         direct_file=self.flt_input,
-                                         force_grism='G102', pad=self.pad)
-
-        sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
-
-        keep = sim_g102.catalog['mag'] < 29
-        #c = sim_g102.catalog
-        c = Table.read('../data/galaxy_flts/{0}_flt.detect.cat'.format(self.galaxy_id),format='ascii')
-        sim_g102.catalog = c
-        
-        
-        sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
-
-        ## Grab object near the center of the image
-        dr = np.sqrt((sim_g102.catalog['x_flt'] - 579) ** 2 + (sim_g102.catalog['y_flt'] - 522) ** 2)
-        ix = np.argmin(dr)
-        id = sim_g102.catalog['id'][ix]
 
         ## Spectrum cutouts
-        self.beam = griz_model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id][2]['A'], conf=sim_g102.conf)
+        self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 
-    def Sim_spec(self, metal, age, tau):
-        import pysynphot as S
+        ## Get sensitivity function
+
+        flat = self.beam.flat_flam.reshape(self.beam.beam.sh_beam)
+        fwv, ffl, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,flat.shape[0]]),flat.T[:-1],axis=0).T , bin=0)
+        
+        self.filt = interp1d(fwv, ffl)(self.gal_wv)
+        
+    def Sim_spec(self, metal, age, tau, model_redshift = 0, dust = 0):
+        if model_redshift ==0:
+            model_redshift = self.redshift
+            
         model = '../../../fsps_models_for_fit/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(metal, age, tau)
 
         wave, fl = np.load(model)
-        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
-        spec = spec.redshift(self.redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
-        spec.convert('flam')
+
+        cal = 1
+        if dust !=0:
+            lam = wave * 1E-4
+            Rv = 4.05
+            k = 2.659*(-2.156 +1.509/(lam) -0.198/(lam**2) +0.011/(lam**3)) + Rv
+            cal = 10**(-0.4 * k * dust / Rv)  
+        
         ## Compute the models
-        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+        self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift),fl * cal])
 
         ## Extractions the model (error array here is meaningless)
-        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),
+                                                           self.beam.model.T[:-1],axis=0).T , bin=0)
 
         ifl = interp1d(w, f)(self.gal_wv)
-
-        ## Get sensitivity function
-        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
-        filt = interp1d(fwv, ffl)(self.gal_wv)
-
-        adj_ifl = ifl /filt
-
+        adj_ifl = ifl /self.filt
+        
         C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
 
         self.fl = C * adj_ifl
+        
+    def Sim_spec_mult(self, wave, fl, model_redshift = 0):
+        if model_redshift ==0:
+            model_redshift = self.redshift
+
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift), fl])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),
+                                                           self.beam.model.T[:-1],axis=0).T , bin=0)
+
+        self.fl = f
+        self.mwv = w
 
     def Fit_lwa(self, fit_Z, fit_t, metal_array, age_array, tau_array):
         
@@ -555,19 +561,6 @@ class Gen_spec(object):
         C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
 
         self.fl_bc = C * adj_ifl
-
-    def Median_spec_BC03(self, metal, age, tau_array):
-
-        chi = []
-        for i in range(len(tau_array)):
-            self.Sim_spec_BC03(metal, age, tau_array[i])
-            chi.append(Identify_stack(self.gal_fl, self.gal_er, self.fl))
-
-
-        self.bfmetal_bc = metal
-        self.bfage_bc = age
-        self.bftau_bc = tau_array[np.argmin(chi)]
-        self.Sim_spec_BC03(metal, age, tau_array[np.argmin(chi)])
         
 
 def Single_gal_fit(metal, age, tau, specz, galaxy, name, minwv = 7900, maxwv = 11300):
