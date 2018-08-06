@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J ffit-30
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o ffit30-%j.out
+#SBATCH -e ffit30-%j.err
+
+chmod a+x C_fit_full_instruct.py
+
+python C_fit_full_instruct.py 's46066' 1.326 1.306 1.346 's46066_full_fit' &
+
+wait
+
+exit 0

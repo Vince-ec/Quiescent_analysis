@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J ffit-4
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=8000
+#SBATCH -o ffit4-%j.out
+#SBATCH -e ffit4-%j.err
+
+chmod a+x C_fit_full_instruct.py
+
+python C_fit_full_instruct.py 'n21427' 1.506 1.486 1.526 'n21427_full_fit' &
+
+wait
+
+exit 0
