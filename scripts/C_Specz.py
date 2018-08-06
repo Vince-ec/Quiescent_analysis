@@ -10,10 +10,11 @@ def Scale_model_mult(D, sig, M):
     return C
 
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11300):
+    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11300,shift=1):
         self.galaxy_id = galaxy_id
         self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
+        self.shift = shift
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
@@ -27,9 +28,6 @@ class Gen_spec(object):
         **
         self.fl - output flux array of simulated spectra
         """
-
-        if self.galaxy_id == 's35774':
-            maxwv = 11100
 
         gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
         self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
@@ -51,13 +49,10 @@ class Gen_spec(object):
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 
         ## Get sensitivity function
-        if self.gid in [17070,19148,45775,19442]:
-            fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
         
-        else:
-            flat = beam.flat_flam.reshape(beam.beam.sh_beam)
-            fwv,ffl,ferr = beam.beam.optimal_extract(flat, bin=0, ivar=beam.ivar)
-        
+        flat = self.beam.flat_flam.reshape(self.beam.beam.sh_beam)
+        fwv, ffl, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,flat.shape[0]]),flat.T[:-1],axis=0).T , bin=0)
+
         self.filt = interp1d(fwv, ffl)(self.gal_wv)
         
     def Sim_spec(self, metal, age, tau, model_redshift = 0):
@@ -72,7 +67,7 @@ class Gen_spec(object):
         self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift),fl])
 
         ## Extractions the model (error array here is meaningless)
-        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),self.beam.model.T[:-1],axis=0).T , bin=0)
 
         ifl = interp1d(w, f)(self.gal_wv)
         
@@ -90,7 +85,7 @@ class Gen_spec(object):
         self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift), fl])
 
         ## Extractions the model (error array here is meaningless)
-        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),self.beam.model.T[:-1],axis=0).T , bin=0)
 
         self.fl = f
         self.mwv = w
@@ -140,7 +135,7 @@ def Analyze_LH_specz(chifits, metal, age, rshift):
 
     P = np.exp(-chi.astype(np.float128) / 2)
     
-    Pz = np.trapz(np.trapz(P, metal, axis=2), age, axis=1) /\
-        np.trapz(np.trapz(np.trapz(P, metal, axis=2), age, axis=1),rshift)
+    Pz = np.trapz(np.trapz(P.T, metal, axis=2), age, axis=1) /\
+        np.trapz(np.trapz(np.trapz(P.T, metal, axis=2), age, axis=1),rshift)
     
     return Pz

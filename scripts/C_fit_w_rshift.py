@@ -9,12 +9,24 @@ import grizli.model
 import numpy as np
 import pandas as pd
 
+def Calzetti(Av,lam):
+    lam = lam * 1E-4
+    Rv=4.05
+    k = 2.659*(-2.156 +1.509/(lam) -0.198/(lam**2) +0.011/(lam**3)) + Rv
+    cal = 10**(-0.4*k*Av/Rv)    
+    
+    return cal
+
+def Scale_model_mult(D, sig, M):
+    C = np.sum(((D * M) / sig ** 2), axis=1) / np.sum((M ** 2 / sig ** 2), axis=1)
+    return C
+
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift, pad=100, delayed = True,minwv = 7900, maxwv = 11300):
+    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11200, shift = 1):
         self.galaxy_id = galaxy_id
+        self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
-        self.pad = pad
-        self.delayed = delayed
+        self.shift = shift
 
         """ 
         self.flt_input - grism flt (not image flt) which contains the object you're interested in modeling, this
@@ -32,12 +44,8 @@ class Gen_spec(object):
         self.fl - output flux array of simulated spectra
         """
 
-        if self.galaxy_id == 's35774':
-            maxwv = 11100
-
-        gal_wv, gal_fl, gal_er = \
-            np.load('/fdata/scratch/vestrada78840/spec_stacks_june14/%s_stack.npy' % self.galaxy_id)
-        self.flt_input = '/fdata/scratch/vestrada78840/galaxy_flts/%s_flt.fits' % self.galaxy_id
+        gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
+        self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
 
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
@@ -51,56 +59,61 @@ class Gen_spec(object):
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
-        ## Create Grizli model object
-        sim_g102 = grizli.model.GrismFLT(grism_file='', verbose=False,
-                                         direct_file=self.flt_input,
-                                         force_grism='G102', pad=self.pad)
-
-        sim_g102.photutils_detection(detect_thresh=.025, verbose=True, save_detection=True)
-
-        keep = sim_g102.catalog['mag'] < 29
-        #c = sim_g102.catalog
-        c = Table.read('/fdata/scratch/vestrada78840/galaxy_flts/{0}_flt.detect.cat'.format(self.galaxy_id),format='ascii')
-        sim_g102.catalog = c
-        
-        
-        sim_g102.compute_full_model(ids=c['id'][keep], mags=c['mag'][keep], verbose=False)
-
-        ## Grab object near the center of the image
-        dr = np.sqrt((sim_g102.catalog['x_flt'] - 579) ** 2 + (sim_g102.catalog['y_flt'] - 522) ** 2)
-        ix = np.argmin(dr)
-        id = sim_g102.catalog['id'][ix]
-
         ## Spectrum cutouts
-        self.beam = grizli.model.BeamCutout(sim_g102, beam=sim_g102.object_dispersers[id][2]['A'], conf=sim_g102.conf)
+        self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 
         ## Get sensitivity function
-        fwv, ffl = [self.beam.beam.lam, self.beam.beam.sensitivity / np.max(self.beam.beam.sensitivity)]
+        
+        flat = self.beam.flat_flam.reshape(self.beam.beam.sh_beam)
+        fwv, ffl, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,flat.shape[0]]),flat.T[:-1],axis=0).T , bin=0)
+
         self.filt = interp1d(fwv, ffl)(self.gal_wv)
         
-    def Sim_spec(self, wave, fl, model_redshift = 0):
-        import pysynphot as S
-
+    def Sim_spec(self, metal, age, tau, model_redshift = 0, dust = 0):
         if model_redshift ==0:
             model_redshift = self.redshift
+            
+        model = '/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(metal, age, tau)
+
+        wave, fl = np.load(model)            
+            
+        cal = 1
+        if dust !=0:
+            lam = wave * 1E-4
+            Rv = 4.05
+            k = 2.659*(-2.156 +1.509/(lam) -0.198/(lam**2) +0.011/(lam**3)) + Rv
+            cal = 10**(-0.4 * k * dust / Rv)  
         
-        spec = S.ArraySpectrum(wave, fl, fluxunits='flam')
-        spec = spec.redshift(model_redshift).renorm(1., 'flam', S.ObsBandpass('wfc3,ir,f105w'))
-        spec.convert('flam')
         ## Compute the models
-        self.beam.compute_model(spectrum_1d=[spec.wave, spec.flux])
+        self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift),fl * cal])
 
         ## Extractions the model (error array here is meaningless)
-        w, f, e = self.beam.beam.optimal_extract(self.beam.model, bin=0)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),
+                                                           self.beam.model.T[:-1],axis=0).T , bin=0)
 
-        adj_ifl = interp1d(w, f)(self.gal_wv) /self.filt
-
+        ifl = interp1d(w, f)(self.gal_wv)
+        adj_ifl = ifl /self.filt
+        
         C = Scale_model(self.gal_fl, self.gal_er, adj_ifl)
 
         self.fl = C * adj_ifl
 
+    def Sim_spec_mult(self, wave, fl, model_redshift = 0):
+        if model_redshift ==0:
+            model_redshift = self.redshift
+
+        ## Compute the models
+        self.beam.compute_model(spectrum_1d=[wave*(1+model_redshift), fl])
+
+        ## Extractions the model (error array here is meaningless)
+        w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),
+                                                           self.beam.model.T[:-1],axis=0).T , bin=0)
+
+        self.fl = f
+        self.mwv = w
         
-def Single_gal_fit_w_redshift(metal, age, tau, rshift, specz, galaxy, name, minwv = 7900, maxwv = 11300):
+        
+def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
     #############Read in spectra#################
     spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
@@ -129,9 +142,6 @@ def Single_gal_fit_w_redshift(metal, age, tau, rshift, specz, galaxy, name, minw
         spec.gal_er[IDer] = 1E8
         spec.gal_fl[IDer] = 0
 
-    #############Prep output files: 1-full###############
-    chifile1 = '/home/vestrada78840/chidat/%s_chidata' % name
- 
     ##############Create chigrid and add to file#################
     model_fl = []
     for i in range(len(metal)):
@@ -141,23 +151,39 @@ def Single_gal_fit_w_redshift(metal, age, tau, rshift, specz, galaxy, name, minw
                     metal[i], age[ii], tau[iii]))
                 model_fl.append(fl)
     
-    mfl = np.zeros([len(metal)*len(age)*len(tau)*len(rshift),len(spec.gal_wv_rf)])
+    mfl = []
     for i in range(len(model_fl)):
         for ii in range(len(rshift)):
-            spec.Sim_spec(wv,model_fl[i],rshift[ii])
-            mfl[i*len(rshift) + ii]=spec.fl
-    chigrid1 = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)]).\
-        astype(np.float128)
+            spec.Sim_spec_mult(wv,model_fl[i],rshift[ii])
+            mfl.append(spec.fl)
 
+    np.array(mfl)
+    fl_mask = np.ma.masked_invalid(mfl)
+    fl_mask.data[fl_mask.mask] = 0
+    iflgrid = interp2d(spec.mwv,range(len(fl_mask.data)),fl_mask.data)(spec.gal_wv,range(len(fl_mask.data)))
+    adjflgrid = iflgrid / spec.filt
+     
+    Av = np.arange(0, 1.1, 0.1)
+    chifiles = []
+    for i in range(len(Av)):
+        dust = Calzetti(Av[i],spec.gal_wv_rf)
+        redflgrid = adjflgrid * dust
+        SCL = Scale_model_mult(spec.gal_fl,spec.gal_er,redflgrid)
+        mfl = np.array([SCL]).T*redflgrid
+        chigrid = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)]).\
+        astype(np.float128)
+        np.save('/home/vestrada78840/chidat/{0}_d{1}_chidata'.format(name, i),chigrid)
+        chifiles.append('/home/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name, i))
 
     ################Write chigrid file###############
-    np.save(chifile1,chigrid1)
+    
+    P, PZ, Pt, Ptau, Pz, Pd = Analyze_full_fit(chifiles, metal, age, tau, rshift)
 
-#    P, PZ, Pt = Analyze_LH_lwa(chifile1 + '.npy', specz, metal, age, tau)
+    np.save('/home/vestrada78840/chidat/%s_tZ_pos' % name,P)
+    np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
+    np.save('/home/vestrada78840/chidat/%s_t_pos' % name,[age,Pt])
+    np.save('/home/vestrada78840/chidat/%s_tau_pos' % name,[np.append(0, np.power(10, np.array(tau)[1:] - 9)),Ptau])
+    np.save('/home/vestrada78840/chidat/%s_z_pos' % name,[rshift,Pz])
+    np.save('/home/vestrada78840/chidat/%s_d_pos' % name,[np.arange(0,1.1,0.1),Pd])
 
-#    np.save('../chidat/%s_tZ_pos' % name,P)
-#    np.save('../chidat/%s_Z_pos' % name,[metal,PZ])
-#    np.save('../chidat/%s_t_pos' % name,[age,Pt])
-
-    print('Done!')
     return
