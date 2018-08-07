@@ -66,7 +66,8 @@ class Gen_spec(object):
         
         flat = self.beam.flat_flam.reshape(self.beam.beam.sh_beam)
         fwv, ffl, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,flat.shape[0]]),flat.T[:-1],axis=0).T , bin=0)
-
+        IDT = [U for U in range(len(fwv)) if 7800 <= fwv[U] <= 11500] 
+        self.IDT = IDT
         self.filt = interp1d(fwv, ffl)(self.gal_wv)
         
     def Sim_spec(self, metal, age, tau, model_redshift = 0, dust = 0):
@@ -109,8 +110,8 @@ class Gen_spec(object):
         w, f, e = self.beam.beam.optimal_extract(np.append(np.zeros([self.shift,self.beam.model.shape[0]]),
                                                            self.beam.model.T[:-1],axis=0).T , bin=0)
 
-        self.fl = f
-        self.mwv = w
+        self.fl = f[self.IDT]
+        self.mwv = w[self.IDT]
         
         
 def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
@@ -143,35 +144,30 @@ def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, 
         spec.gal_fl[IDer] = 0
 
     ##############Create chigrid and add to file#################
-    model_fl = []
+    mfl = np.zeros([len(metal)*len(age)*len(tau)*len(rshift),len(spec.IDT)])
     for i in range(len(metal)):
         for ii in range(len(age)):
             for iii in range(len(tau)):
                 wv,fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
                     metal[i], age[ii], tau[iii]))
-                model_fl.append(fl)
+                for iv in range(len(rshift)):
+                    spec.Sim_spec_mult(wv,fl,rshift[iv])
+                    mfl[i*len(age)*len(tau)*len(rshift) + ii*len(tau)*len(rshift) + iii*len(rshift) + iv] = spec.fl
     
-    mfl = []
-    for i in range(len(model_fl)):
-        for ii in range(len(rshift)):
-            spec.Sim_spec_mult(wv,model_fl[i],rshift[ii])
-            mfl.append(spec.fl)
 
-    np.array(mfl)
-    fl_mask = np.ma.masked_invalid(mfl)
-    fl_mask.data[fl_mask.mask] = 0
-    iflgrid = interp2d(spec.mwv,range(len(fl_mask.data)),fl_mask.data)(spec.gal_wv,range(len(fl_mask.data)))
-    adjflgrid = iflgrid / spec.filt
+    mfl = np.ma.masked_invalid(mfl)
+    mfl.data[mfl.mask] = 0
+    mfl = interp2d(spec.mwv,range(len(mfl.data)),mfl.data)(spec.gal_wv,range(len(mfl.data)))
+    mfl = mfl / spec.filt
      
     Av = np.arange(0, 1.1, 0.1)
     chifiles = []
     for i in range(len(Av)):
         dust = Calzetti(Av[i],spec.gal_wv_rf)
-        redflgrid = adjflgrid * dust
+        redflgrid = mfl * dust
         SCL = Scale_model_mult(spec.gal_fl,spec.gal_er,redflgrid)
-        mfl = np.array([SCL]).T*redflgrid
-        chigrid = np.sum(((spec.gal_fl - mfl) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)]).\
-        astype(np.float128)
+        redflgrid = np.array([SCL]).T*redflgrid
+        chigrid = np.sum(((spec.gal_fl - redflgrid) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)])
         np.save('/home/vestrada78840/chidat/{0}_d{1}_chidata'.format(name, i),chigrid)
         chifiles.append('/home/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name, i))
 
@@ -183,7 +179,7 @@ def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, 
     np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
     np.save('/home/vestrada78840/chidat/%s_t_pos' % name,[age,Pt])
     np.save('/home/vestrada78840/chidat/%s_tau_pos' % name,[np.append(0, np.power(10, np.array(tau)[1:] - 9)),Ptau])
-    np.save('/home/vestrada78840/chidat/%s_z_pos' % name,[rshift,Pz])
+    np.save('/home/vestrada78840/chidat/%s_rs_pos' % name,[rshift,Pz])
     np.save('/home/vestrada78840/chidat/%s_d_pos' % name,[np.arange(0,1.1,0.1),Pd])
 
     return
