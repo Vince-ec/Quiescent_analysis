@@ -424,7 +424,7 @@ def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range, 
 
 """Single Galaxy"""
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11200, shift = 1):
+    def __init__(self, galaxy_id, redshift,minwv = 8000, maxwv = 11200, shift = 1):
         self.galaxy_id = galaxy_id
         self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
@@ -1994,18 +1994,38 @@ class Stack(object):
         self.mwv = mwv
         self.mfl = mfl
 
-    def Highest_likelihood_model_mlist(self, bfmetal, bfage, tau):
-
+        
+    def Fit_lwa(self, fit_Z, fit_t, fit_d, metal_array, age_array, tau_array):
+        
+        lwa_grid = np.load('../data/light_weight_scaling_3.npy')
         chi = []
-        for i in range(len(tau)):
-            mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, bfmetal, bfage,
-                                             tau[i], self.wv, self.norm_range)
-            chi.append(Identify_stack(self.fl, self.er, mfl))
+        good_age =[]
+        good_tau =[]
+        for i in range(len(tau_array)):
+            for ii in range(age_array.size):
+                
+                lwa = lwa_grid[np.argwhere(np.round(metal_array,3) == np.round(fit_Z,3))[0][0]][ii][i]
+                
+                if (fit_t - 0.1) < lwa < (fit_t + 0.1):
+                    mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, fit_Z, age_array[ii],
+                                             tau_array[i], self.wv, self.norm_range)
+                    cal = Calzetti(fit_d,self.wv)
+                    scl = Scale_model(self.fl,self.er,mfl*cal)
+                    chi.append(sum(((self.fl - (mfl*cal*scl)) / self.er)**2))
+                    good_age.append(age_array[ii])
+                    good_tau.append(tau_array[i])
 
-        print([bfmetal, bfage, tau[np.argmin(chi)]])
+        self.bfage = np.array(good_age)[chi == min(chi)][0]
+        self.bftau = np.array(good_tau)[chi == min(chi)][0]
+        if self.bftau == 0.0:
+            self.bftau = int(0)
+        mwv, mfl = Stack_model_normwmean(self.speclist, self.redshifts, fit_Z, self.bfage,
+                                         self.bftau, self.wv, self.norm_range)
 
-        self.bftau = tau[np.argmin(chi)]
-
+        cal = Calzetti(fit_d,self.wv)
+        scl = Scale_model(self.fl,self.er,mfl*cal)
+        self.mwv = mwv
+        self.mfl = mfl*cal*scl
 
 def MC_fit_methods_test_2(galaxy, metal, age, tau, sim_m, sim_a, sim_t, specz, minwv=7900, maxwv=11400, repeats=1,
            age_conv='../data/tau_scale_ntau.dat'):
