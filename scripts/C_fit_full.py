@@ -49,6 +49,7 @@ class Gen_spec(object):
         gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
         self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
 
+        
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
@@ -61,6 +62,10 @@ class Gen_spec(object):
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
+        WV,TEF = np.load('/fdata/scratch/vestrada78840/data/template_error_function.npy')
+        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
+        
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 

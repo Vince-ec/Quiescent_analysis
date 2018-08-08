@@ -458,6 +458,9 @@ class Gen_spec(object):
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
+        WV,TEF = np.load('../data/template_error_function.npy')
+        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
 
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
@@ -512,7 +515,7 @@ class Gen_spec(object):
         self.fl = f
         self.mwv = w
 
-    def Fit_lwa(self, fit_Z, fit_t, metal_array, age_array, tau_array):
+    def Fit_lwa(self, fit_Z, fit_t, fit_z, fit_d, metal_array, age_array, tau_array):
         
         lwa_grid = np.load('../data/light_weight_scaling_3.npy')
         chi = []
@@ -524,7 +527,7 @@ class Gen_spec(object):
                 lwa = lwa_grid[np.argwhere(np.round(metal_array,3) == np.round(fit_Z,3))[0][0]][ii][i]
                 
                 if (fit_t - 0.1) < lwa < (fit_t + 0.1):
-                    self.Sim_spec(fit_Z,age_array[ii],tau_array[i])
+                    self.Sim_spec(fit_Z,age_array[ii],tau_array[i],fit_z, fit_d)
                     chi.append(sum(((self.gal_fl - self.fl) / self.gal_er)**2))
                     good_age.append(age_array[ii])
                     good_tau.append(tau_array[i])
@@ -533,7 +536,7 @@ class Gen_spec(object):
         self.bftau = np.array(good_tau)[chi == min(chi)][0]
         if self.bftau == 0.0:
             self.bftau = int(0)
-        self.Sim_spec(fit_Z, self.bfage, self.bftau)    
+        self.Sim_spec(fit_Z, self.bfage, self.bftau, fit_z, fit_d)    
 
 
     def Sim_spec_BC03(self, metal, age, tau):
