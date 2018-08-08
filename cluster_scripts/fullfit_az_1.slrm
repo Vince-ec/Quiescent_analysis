@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J faz-1
+#SBATCH -p background
+#SBATCH --time=10:00:00
+#SBATCH --mem-per-cpu=32000
+#SBATCH -o faz1-%j.out
+#SBATCH -e faz1-%j.err
+
+chmod a+x C_fit_full_analyze.py
+
+python C_fit_full_analyze.py 'n16758' 1.015 0.995 1.035 'n16758_full_fit' &
+
+wait
+
+exit 0
