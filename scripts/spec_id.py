@@ -2563,6 +2563,23 @@ def MC_fit_jwst(sim_spec, metal, age, tau, name, repeats=100, age_conv='../data/
 
 #####STATS
 
+def Reconfigure_dist(grid,x,roundto):
+    g = np.array(grid)
+    x = np.round(x,roundto)
+            
+    delx= x[1] - x[0]
+    radx = (max(x) - min(x))/2.
+    #newx =np.round(np.arange(x[0] - radx,x[-1] + radx, delx),roundto)
+    newx =np.round(np.arange(x[0],x[-1] + radx, delx),roundto)
+    regrid = np.zeros([len(g),len(newx)])
+    
+    for i in range(len(regrid)):
+        for ii in range(len(x)):
+            if x[ii] in newx:
+    
+                regrid[i][newx == x[ii]] = g[i][ii]
+    return newx,regrid
+
 def Leave_one_out(dist, x):
     Y = np.zeros(x.size)
     for i in range(len(dist)):
@@ -2589,18 +2606,27 @@ def Stack_posteriors(P_grid, x):
     P =sum(top)/sum(W)
     return P / np.trapz(P,x)
 
-def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 250):
+def Iterative_stacking(grid_o,x_o,rto, extend=False, iterations = 20,resampling = 250):
     ksmooth = importr('KernSmooth')
     del_x = x_o[1] - x_o[0]
 
-    ### resample
-    x = np.linspace(x_o[0],x_o[-1],resampling)
-    grid = np.zeros([len(grid_o),x.size])    
-    for i in range(len(grid_o)):
-        grid[i] = interp1d(x_o,grid_o[i])(x)
-   
-    ### select bandwidth
-    H = ksmooth.dpik(x)
+    if extend:
+        x_n,grid_n = Reconfigure_dist(grid_o,x_o,rto)
+
+        x = np.linspace(x_n[0],x_n[-1],resampling)
+        grid = np.zeros([len(grid_n),x.size])    
+        for i in range(len(grid_n)):
+            grid[i] = interp1d(x_n,grid_n[i])(x)
+        ### select bandwidth
+        H = ksmooth.dpik(x_o) 
+    else:
+        x = np.linspace(x_o[0],x_o[-1],resampling)
+        grid = np.zeros([len(grid_o),x.size])    
+        for i in range(len(grid_o)):
+            grid[i] = interp1d(x_o,grid_o[i])(x)
+
+        ### select bandwidth
+        H = ksmooth.dpik(x)
     ### stack posteriors w/ weights
     stkpos = Stack_posteriors(grid,x)
     ### initialize prior as flat
@@ -2614,8 +2640,12 @@ def Iterative_stacking(grid_o,x_o,iterations = 20,resampling = 250):
         Fx = interp1d(X,iFX)(x)
 
     Fx[Fx<0]=0
-    Fx = Fx/np.trapz(Fx,x)
-    return Fx,x
+    rsFx = interp1d(x,Fx)(x_o)
+    rsFx = rsFx/np.trapz(rsFx,x_o)  
+    
+    rsstkpos = interp1d(x,stkpos)(x_o)
+    rsstkpos = rsstkpos/np.trapz(rsstkpos,x_o)  
+    return rsFx,rsstkpos
 
 def Linear_fit(x,Y,sig,new_x,return_cov = False):
     A=np.array([np.ones(len(x)),x]).T
