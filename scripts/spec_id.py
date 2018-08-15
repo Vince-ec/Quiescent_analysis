@@ -240,7 +240,7 @@ def Median_w_Error(Pofx, x):
 
 def Median_w_Error_95(Pofx, x):
     iP = interp1d(x, Pofx)
-    ix = np.linspace(x[0], x[-1], 500)
+    ix = np.linspace(x[0], x[-1], 10000)
 
     lerr = 0
     herr = 0
