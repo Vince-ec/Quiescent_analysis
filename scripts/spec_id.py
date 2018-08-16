@@ -459,7 +459,8 @@ class Gen_spec(object):
         self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
-
+        self.o_er = np.array(self.gal_er)
+        
         WV,TEF = np.load('../data/template_error_function.npy')
         iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
         self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
