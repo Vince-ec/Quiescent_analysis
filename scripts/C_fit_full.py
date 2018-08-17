@@ -44,12 +44,11 @@ class Gen_spec(object):
         self.fl - output flux array of simulated spectra
         """
         if self.galaxy_id == 's35774':
-            maxwv = 11000
+            maxwv = 10800
             
         gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
         self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
 
-        
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
@@ -62,10 +61,11 @@ class Gen_spec(object):
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
 
+
         WV,TEF = np.load('/fdata/scratch/vestrada78840/data/template_error_function.npy')
         iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
         self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
-        
+
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 
@@ -156,7 +156,7 @@ def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, 
         np.save('/fdata/scratch/vestrada78840/chidat/spec_files/{0}_m{1}'.format(name, metal[i]),mfl)
 
 def Galaxy_full_analyze(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
-    Redden_and_stich(galaxy,name,metal, specz, rshift,minwv, maxwv)
+    Redden_and_stich(galaxy,name,metal,age,tau, specz, rshift,minwv, maxwv)
     grids = ['/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name,U) for U in range(11)]
     
     P, PZ, Pt, Ptau, Pz, Pd = Analyze_full_fit(grids, metal, age, tau, rshift)
@@ -176,7 +176,7 @@ def Stich_spec(grids):
     stc = np.array(stc)
     return stc.reshape([stc.shape[0] * stc.shape[1],stc.shape[2]])
 
-def Redden_and_stich(galaxy,name,metal,specz, rshift,minwv, maxwv):
+def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv):
     #############Read in spectra#################
     spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
@@ -207,18 +207,32 @@ def Redden_and_stich(galaxy,name,metal,specz, rshift,minwv, maxwv):
     mfl.data[mfl.mask] = 0
     mfl = interp2d(spec.mwv,range(len(mfl.data)),mfl.data)(spec.gal_wv,range(len(mfl.data)))
     mfl = mfl / spec.filt
-     
+    
+    minidust = Gen_dust_minigrid(spec.gal_wv, rshift)
+    
     Av = np.arange(0, 1.1, 0.1)
     chifiles = []
     for i in range(len(Av)):
-        dust = Calzetti(Av[i],spec.gal_wv_rf)
-        redflgrid = mfl * dust
+        dustgrid = np.repeat([minidust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
+            [len(minidust[str(Av[i])])*len(metal)*len(age)*len(tau), len(spec.gal_wv)])
+        redflgrid = mfl * dustgrid
         SCL = Scale_model_mult(spec.gal_fl,spec.gal_er,redflgrid)
         redflgrid = np.array([SCL]).T*redflgrid
         chigrid = np.sum(((spec.gal_fl - redflgrid) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)])
         np.save('/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata'.format(name, i),chigrid)
         chifiles.append('/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name, i))
-        
+
+def Gen_dust_minigrid(fit_wv,rshift):
+    dust_dict = {}
+    Av = np.round(np.arange(0, 1.1, 0.1),1)
+    for i in range(len(Av)):
+        key = str(Av[i])
+        minigrid = np.zeros([len(rshift),len(fit_wv)])
+        for ii in range(len(rshift)):
+            minigrid[ii] = Calzetti(Av[i],fit_wv / (1 + rshift[ii]))
+        dust_dict[key] = minigrid
+    return dust_dict
+
 def Stich_grids(grids):
     stc = []
     for i in range(len(grids)):
@@ -249,7 +263,14 @@ def Analyze_full_fit(chifiles, metal, age, tau, rshift, dust = np.arange(0,1.1,0
             overhead[i][ii] = sum(amt)
 
     ######## get Pd and Pz
+
+    d,Priord = np.load('/fdata/scratch/vestrada78840/data/dust_prior.npy')
+    
     P_full = np.exp(- chi / 2).astype(np.float128)
+    
+    for i in range(len(Priord)):
+        P_full[i] = P_full[i] * Priord[i]
+
     Pd = np.trapz(np.trapz(np.trapz(np.trapz(P_full, rshift, axis=4), ultau, axis=3), age, axis=2), metal, axis=1) /\
         np.trapz(np.trapz(np.trapz(np.trapz(np.trapz(P_full, rshift, axis=4), ultau, axis=3), age, axis=2), metal, axis=1),dust)
 
