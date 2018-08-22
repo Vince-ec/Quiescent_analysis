@@ -11,4 +11,4 @@ tau_test=[0,8.0, 8.3, 8.48, 8.6]
 ztest = np.array([1.219,1.220])
 
 MC_fit('s40597', mtest, age, tau, ztest, np.arange(0, 1.1, 0.1), 0.018, 2.0, 0, 
-       1.22, 0.0, 1000, 'all_test', 1.221, 'mc_test', repeats=100)
+       1.22, 0.0, 10, 'all_test', 1.221, 'mc_test', repeats=10)
