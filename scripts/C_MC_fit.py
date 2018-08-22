@@ -1,11 +1,32 @@
-from C_spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
-#from spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
 from scipy.interpolate import interp1d, interp2d
 from glob import glob
 import numpy as np
 import pandas as pd
 import grizli.model
+import os
 
+#set home
+hpath = os.environ['HOME'] + '/'
+
+if hpath == 'home/vestrada78840/':
+    from C_spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
+    data_path = '/fdata/scratch/vestrada78840/data'
+    model_path ='/fdata/scratch/vestrada78840/fsps_spec/'
+    chi_path = '/fdata/scratch/vestrada78840/chidat/'
+    spec_path = 
+    beam_path = 
+    mcerr_path = 
+    
+else:
+    from spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
+    data_path = '../data'
+    model_path ='../../../fsps_models_for_fit/fsps_spec/'
+    chi_path = '../chidat/'
+    spec_path = 
+    beam_path = 
+    mcerr_path =  
+    
+    
 def Scale_model_mult(D, sig, M):
     C = np.sum(((D * M) / sig ** 2), axis=1) / np.sum((M ** 2 / sig ** 2), axis=1)
     return C
@@ -80,12 +101,17 @@ def Redden(mfl, dust, fit_fl, fit_er, gal_fl, metal, age, tau,rshift):
             [len(dust[str(Av[i])])*len(metal)*len(age)*len(tau), len(fit_fl)])
         redflgrid = mfl * dustgrid
         SCL = Scale_model_mult(gal_fl,fit_er,redflgrid)
-        redflgrid = np.array([SCL]).T*redflgrid
-        fullgrid.append(np.sum(((fit_fl - redflgrid) / fit_er) ** 2, axis=1).reshape(
+        fullgrid.extend(np.array([SCL]).T*redflgrid)
+    return np.array(fullgrid)
+    
+def Fit_spec(fit_grid,fit_fl,fit_er,metal,age,tau,rshift):
+    fullgrid=[]
+    for i in range(len(fit_grid)):
+        fullgrid.append(np.sum(((fit_fl - fit_grid) / fit_er) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau), len(rshift)]))
 
     return np.array(fullgrid)
-    
+
 def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overhead, dust = np.arange(0,1.1,0.1)):
     
     ####### Get maximum age
@@ -156,14 +182,17 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
          
     ####### Generate dust minigrid
     dstgrid = Gen_dust_minigrid(spec.gal_wv,redshift)
-            
+                
+    redgrid = Redden(mflgrid, dstgrid, flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
+
     for xx in range(repeats):
         flx_err = spec.Perturb_flux(spec.fl,spec.gal_er)
         
-        ###### redden grid  
-        redgrid = Redden(mflgrid, dstgrid, flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
+        ###### fit grid  
        
-        PZlist[xx], Ptlist[xx] = Analyze_full_fit(redgrid,flx_err, spec.gal_er, metal, age, tau, 
+        chigrid = Fit_spec(redgrid,flx_err, spec.gal_er,metal,age,tau,redshift)
+    
+        PZlist[xx], Ptlist[xx] = Analyze_full_fit(chigrid,flx_err, spec.gal_er, metal, age, tau, 
                                                   redshift,convtable, overhead)
 
         mlist[xx],ml,mh = Median_w_Error_cont(PZlist[xx],metal)
