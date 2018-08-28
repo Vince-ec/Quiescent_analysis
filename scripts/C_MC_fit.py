@@ -4,27 +4,28 @@ import numpy as np
 import pandas as pd
 import grizli.model
 import os
+from time import time
 
 #set home
 hpath = os.environ['HOME'] + '/'
 
-if hpath == 'home/vestrada78840/':
+if hpath == '/home/vestrada78840/':
     from C_spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
-    data_path = '/fdata/scratch/vestrada78840/data'
+    data_path = '/fdata/scratch/vestrada78840/data/'
     model_path ='/fdata/scratch/vestrada78840/fsps_spec/'
     chi_path = '/fdata/scratch/vestrada78840/chidat/'
-    spec_path = 
-    beam_path = 
-    mcerr_path = 
+    spec_path = '/fdata/scratch/vestrada78840/stack_specs/'
+    beam_path = '/fdata/scratch/vestrada78840/clear_q_beams/'
+    mcerr_path = '/home/vestrada78840/mcerr/'
     
 else:
     from spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
-    data_path = '../data'
+    data_path = '../data/'
     model_path ='../../../fsps_models_for_fit/fsps_spec/'
     chi_path = '../chidat/'
-    spec_path = 
-    beam_path = 
-    mcerr_path =  
+    spec_path = '../spec_stacks/'
+    beam_path = '../beams/'
+    mcerr_path = '../mcerr/' 
     
     
 def Scale_model_mult(D, sig, M):
@@ -64,18 +65,13 @@ def Stich_spec(grids):
 
 def Gen_mflgrid(fit_wv, fit_flat, metal, galaxy, specz,dataset):
     ##### set model wave
-    wave, fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
-        0.019, 2.0, 8.0))
-        
-    #wave, fl = np.load( '../../../fsps_models_for_fit/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
-    #        0.019, 2.0, 8.0))
+    wave, fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(0.019, 2.0, 8.0))
     
     tmp_spec = Gen_sim(galaxy, 0.019,2.0,8.0,specz,0,10)
     mwv, dummy = tmp_spec.Sim_spec_mult(wave, fl, specz)
     
     #############Read in spectra#################    
-    files = ['/fdata/scratch/vestrada78840/chidat/spec_files/{0}_m{1}.npy'.format(dataset,U) for U in metal]
-    #files = ['../chidat/spec_files/{0}_m{1}.npy'.format(dataset,U) for U in metal]
+    files = [chi_path + 'spec_files/{0}_m{1}.npy'.format(dataset,U) for U in metal]
     mfl = Stich_spec(files)
     mfl = np.ma.masked_invalid(mfl)
     mfl.data[mfl.mask] = 0
@@ -101,13 +97,13 @@ def Redden(mfl, dust, fit_fl, fit_er, gal_fl, metal, age, tau,rshift):
             [len(dust[str(Av[i])])*len(metal)*len(age)*len(tau), len(fit_fl)])
         redflgrid = mfl * dustgrid
         SCL = Scale_model_mult(gal_fl,fit_er,redflgrid)
-        fullgrid.extend(np.array([SCL]).T*redflgrid)
+        fullgrid.append(np.array([SCL]).T*redflgrid)
     return np.array(fullgrid)
     
 def Fit_spec(fit_grid,fit_fl,fit_er,metal,age,tau,rshift):
     fullgrid=[]
     for i in range(len(fit_grid)):
-        fullgrid.append(np.sum(((fit_fl - fit_grid) / fit_er) ** 2, axis=1).reshape(
+        fullgrid.append(np.sum(((fit_fl - fit_grid[i]) / fit_er) ** 2, axis=1).reshape(
             [len(metal), len(age), len(tau), len(rshift)]))
 
     return np.array(fullgrid)
@@ -150,9 +146,8 @@ def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overh
     return PZ, Pt
 
 def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, sim_d, sn, dataset, specz, name, repeats=1000,
-                    age_conv='/fdata/scratch/vestrada78840/data/light_weight_scaling_3.npy'):
-                    #age_conv='../data/light_weight_scaling_3.npy'):
-    
+                    age_conv= data_path + 'light_weight_scaling_3.npy'):
+    start = time()
     ######## set paramter output arrays
     PZlist = np.zeros([repeats,metal.size])
     Ptlist = np.zeros([repeats,age.size])
@@ -183,9 +178,13 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
     ####### Generate dust minigrid
     dstgrid = Gen_dust_minigrid(spec.gal_wv,redshift)
                 
-    redgrid = Redden(mflgrid, dstgrid, flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
+    redgrid = Redden(mflgrid, dstgrid, spec.flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
 
+    end = time()
+    print(end - start)
+    
     for xx in range(repeats):
+        start = time()
         flx_err = spec.Perturb_flux(spec.fl,spec.gal_er)
         
         ###### fit grid  
@@ -197,15 +196,14 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
 
         mlist[xx],ml,mh = Median_w_Error_cont(PZlist[xx],metal)
         alist[xx],ml,mh = Median_w_Error_cont(Ptlist[xx],age)
-
-    np.save('/home/vestrada78840/mcerr/PZ_' + name, PZlist)
-    np.save('/home/vestrada78840/mcerr/Pt_' + name, Ptlist)
-    np.save('/home/vestrada78840/mcerr/' + name, [mlist, alist])
-
-    #np.save('../mcerr/PZ_' + name, PZlist)
-    #np.save('../mcerr/Pt_' + name, Ptlist)
-    #np.save('../mcerr/' + name, [mlist, alist])
+        
+        end = time()
+        print(end - start)
     
+    np.save(mcerr_path + 'PZ_' + name, PZlist)
+    np.save(mcerr_path + 'Pt_' + name, Ptlist)
+    np.save(mcerr_path + name, [mlist, alist])
+
     return
 
 class Gen_sim(object):
@@ -220,11 +218,8 @@ class Gen_sim(object):
         self.sim_dust = sim_dust
         self.shift = shift
         
-        gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
-        self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
-
-        #gal_wv, gal_fl, gal_er = np.load(glob('../spec_stacks/*{0}*'.format(self.gid))[0])
-        #self.flt_input = glob('../beams/*{0}*'.format(self.gid))[0]
+        gal_wv, gal_fl, gal_er = np.load(glob(spec_path + '*{0}*'.format(self.gid))[0])
+        self.flt_input = glob(beam_path + '*{0}*'.format(self.gid))[0]
         
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
@@ -239,8 +234,7 @@ class Gen_sim(object):
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
         self.o_er = np.array(self.gal_er)
        
-        WV,TEF = np.load('/fdata/scratch/vestrada78840/data/template_error_function.npy')
-        #WV,TEF = np.load('../data/template_error_function.npy')
+        WV,TEF = np.load(data_path + 'template_error_function.npy')
         iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
         self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
 
@@ -306,11 +300,8 @@ class Gen_sim(object):
         return fl / C0
     
     def Set_spec(self):
-        wave, fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
+        wave, fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
             self.sim_metal, self.sim_age, self.sim_tau))
-        
-        #wave, fl = np.load( '../../../fsps_models_for_fit/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
-        #    self.sim_metal, self.sim_age, self.sim_tau))
 
         cal = Calzetti(self.sim_dust,wave)
         
@@ -326,11 +317,8 @@ class Gen_sim(object):
         if model_redshift ==0:
             model_redshift = self.sim_z
         
-        wave, fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
+        wave, fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
             metal, age, tau))
-        
-        #wave, fl = np.load('../../../fsps_models_for_fit/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
-        #    metal, age, tau))
 
         cal = Calzetti(dust,wave)
         
