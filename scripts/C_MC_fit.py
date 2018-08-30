@@ -94,7 +94,7 @@ def Redden(mfl, dust, fit_fl, fit_er, gal_fl, metal, age, tau,rshift):
     fullgrid=[]
     for i in range(len(Av)):
         dustgrid = np.repeat([dust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
-            [len(dust[str(Av[i])])*len(metal)*len(age)*len(tau), len(fit_fl)])
+            [len(rshift)*len(metal)*len(age)*len(tau), len(fit_fl)])
         redflgrid = mfl * dustgrid
         SCL = Scale_model_mult(gal_fl,fit_er,redflgrid)
         fullgrid.append(np.array([SCL]).T*redflgrid)
@@ -147,7 +147,7 @@ def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overh
 
 def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, sim_d, sn, dataset, specz, name, repeats=1000,
                     age_conv= data_path + 'light_weight_scaling_3.npy'):
-    start = time()
+#    start = time()
     ######## set paramter output arrays
     PZlist = np.zeros([repeats,metal.size])
     Ptlist = np.zeros([repeats,age.size])
@@ -171,20 +171,31 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
                 if age[iii] > convtable.T[i].T[ii][-1]:
                     amt.append(1)
             overhead[i][ii] = sum(amt)
-
+    
+#    end= time()
+#    print(end-start)
     ####### Generate model grid
+#    start=time()
+
     mflgrid = Gen_mflgrid(spec.gal_wv, spec.filt, metal, galaxy, specz,dataset)
-         
+
+#    end= time()
+#    print(end-start)
     ####### Generate dust minigrid
+#    start = time()
+    
     dstgrid = Gen_dust_minigrid(spec.gal_wv,redshift)
-                
+#    end= time()
+#    print(end-start)                
+
+#    start = time()
     redgrid = Redden(mflgrid, dstgrid, spec.flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
 
-    end = time()
-    print(end - start)
+#    end = time()
+#    print(end - start)
     
     for xx in range(repeats):
-        start = time()
+#        start = time()
         flx_err = spec.Perturb_flux(spec.fl,spec.gal_er)
         
         ###### fit grid  
@@ -197,8 +208,8 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
         mlist[xx],ml,mh = Median_w_Error_cont(PZlist[xx],metal)
         alist[xx],ml,mh = Median_w_Error_cont(Ptlist[xx],age)
         
-        end = time()
-        print(end - start)
+#        end = time()
+#        print(end - start)
     
     np.save(mcerr_path + 'PZ_' + name, PZlist)
     np.save(mcerr_path + 'Pt_' + name, Ptlist)
