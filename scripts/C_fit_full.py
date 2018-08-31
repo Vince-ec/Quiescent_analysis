@@ -1,6 +1,5 @@
 from astropy.table import Table
 from astropy.io import fits
-from C_spec_id import Scale_model,Oldest_galaxy
 from astropy.cosmology import Planck13, z_at_value
 from scipy.interpolate import interp1d, interp2d
 from scipy.ndimage import interpolation
@@ -8,7 +7,31 @@ from glob import glob
 import grizli.model
 import numpy as np
 import pandas as pd
+import os
+from time import time
 
+#set home
+hpath = os.environ['HOME'] + '/'
+
+if hpath == '/home/vestrada78840/':
+    from C_spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
+    data_path = '/fdata/scratch/vestrada78840/data/'
+    model_path ='/fdata/scratch/vestrada78840/fsps_spec/'
+    chi_path = '/fdata/scratch/vestrada78840/chidat/'
+    spec_path = '/fdata/scratch/vestrada78840/stack_specs/'
+    beam_path = '/fdata/scratch/vestrada78840/clear_q_beams/'
+    out_path = '/home/vestrada78840/chidat/'
+    
+else:
+    from spec_id import Scale_model, Median_w_Error_cont, Oldest_galaxy
+    data_path = '../data/'
+    model_path ='../../../fsps_models_for_fit/fsps_spec/'
+    chi_path = '../chidat/'
+    spec_path = '../spec_stacks/'
+    beam_path = '../beams/'
+    out_path = '../chidat/' 
+    
+    
 def Calzetti(Av,lam):
     lam = lam * 1E-4
     Rv=4.05
@@ -22,7 +45,7 @@ def Scale_model_mult(D, sig, M):
     return C
 
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11200, shift = 1):
+    def __init__(self, galaxy_id, redshift,minwv = 7900, maxwv = 11200, shift = 1, errf = True):
         self.galaxy_id = galaxy_id
         self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
@@ -46,11 +69,12 @@ class Gen_spec(object):
         if self.galaxy_id == 's35774':
             maxwv = 10800
             
-        gal_wv, gal_fl, gal_er = np.load(glob('/fdata/scratch/vestrada78840/stack_specs/*{0}*'.format(self.gid))[0])
-        self.flt_input = glob('/fdata/scratch/vestrada78840/clear_q_beams/*{0}*'.format(self.gid))[0]
+        gal_wv, gal_fl, gal_er = np.load(glob(spec_path + '*{0}*'.format(self.gid))[0])
+        self.flt_input = glob(beam_path + '*{0}*'.format(self.gid))[0]
 
         IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
+        
         self.gal_wv_rf = gal_wv[IDX] / (1 + self.redshift)
         self.gal_wv = gal_wv[IDX]
         self.gal_fl = gal_fl[IDX]
@@ -60,11 +84,13 @@ class Gen_spec(object):
         self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
         self.gal_er = self.gal_er[self.gal_fl > 0 ]
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
+        
+        if errf:
+            self.o_er = np.array(self.gal_er)
 
-
-        WV,TEF = np.load('/fdata/scratch/vestrada78840/data/template_error_function.npy')
-        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
-        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
+            WV,TEF = np.load(data_path + 'template_error_function.npy')
+            iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+            self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
 
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
@@ -81,7 +107,7 @@ class Gen_spec(object):
         if model_redshift ==0:
             model_redshift = self.redshift
             
-        model = '/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(metal, age, tau)
+        model = model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(metal, age, tau)
 
         wave, fl = np.load(model)            
             
@@ -148,25 +174,25 @@ def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, 
         mfl = np.zeros([len(age)*len(tau)*len(rshift),len(spec.IDT)])
         for ii in range(len(age)):
             for iii in range(len(tau)):
-                wv,fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m{0}_a{1}_dt{2}_spec.npy'.format(
+                wv,fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
                     metal[i], age[ii], tau[iii]))
                 for iv in range(len(rshift)):
                     spec.Sim_spec_mult(wv,fl,rshift[iv])
                     mfl[ii*len(tau)*len(rshift) + iii*len(rshift) + iv] = spec.fl
-        np.save('/fdata/scratch/vestrada78840/chidat/spec_files/{0}_m{1}'.format(name, metal[i]),mfl)
+        np.save(chi_path + 'spec_files/{0}_m{1}'.format(name, metal[i]),mfl)
 
 def Galaxy_full_analyze(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
     Redden_and_stich(galaxy,name,metal,age,tau, specz, rshift,minwv, maxwv)
-    grids = ['/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name,U) for U in range(11)]
+    grids = [chi_path + '{0}_d{1}_chidata.npy'.format(name,U) for U in range(11)]
     
     P, PZ, Pt, Ptau, Pz, Pd = Analyze_full_fit(grids, metal, age, tau, rshift)
 
-    np.save('/home/vestrada78840/chidat/%s_tZ_pos' % name,P)
-    np.save('/home/vestrada78840/chidat/%s_Z_pos' % name,[metal,PZ])
-    np.save('/home/vestrada78840/chidat/%s_t_pos' % name,[age,Pt])
-    np.save('/home/vestrada78840/chidat/%s_tau_pos' % name,[np.append(0, np.power(10, np.array(tau)[1:] - 9)),Ptau])
-    np.save('/home/vestrada78840/chidat/%s_rs_pos' % name,[rshift,Pz])
-    np.save('/home/vestrada78840/chidat/%s_d_pos' % name,[np.arange(0,1.1,0.1),Pd])
+    np.save(out_path + '%s_tZ_pos' % name,P)
+    np.save(out_path + '%s_Z_pos' % name,[metal,PZ])
+    np.save(out_path + '%s_t_pos' % name,[age,Pt])
+    np.save(out_path + '%s_tau_pos' % name,[np.append(0, np.power(10, np.array(tau)[1:] - 9)),Ptau])
+    np.save(out_path + '%s_rs_pos' % name,[rshift,Pz])
+    np.save(out_path + '%s_d_pos' % name,[np.arange(0,1.1,0.1),Pd])
     
 def Stich_spec(grids):
     stc = []
@@ -198,10 +224,10 @@ def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv):
         spec.gal_er[IDer] = 1E8
         spec.gal_fl[IDer] = 0
     
-    wv,fl = np.load('/fdata/scratch/vestrada78840/fsps_spec/m0.019_a2.0_dt8.0_spec.npy')
+    wv,fl = np.load(model_path + 'm0.019_a2.0_dt8.0_spec.npy')
     spec.Sim_spec_mult(wv,fl)
     
-    files = ['/fdata/scratch/vestrada78840/chidat/spec_files/{0}_m{1}.npy'.format(name,U) for U in metal]
+    files = [chi_path + 'spec_files/{0}_m{1}.npy'.format(name,U) for U in metal]
     mfl = Stich_spec(files)
     mfl = np.ma.masked_invalid(mfl)
     mfl.data[mfl.mask] = 0
@@ -210,7 +236,7 @@ def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv):
     
     minidust = Gen_dust_minigrid(spec.gal_wv, rshift)
     
-    Av = np.arange(0, 1.1, 0.1)
+    Av = np.round(np.arange(0, 1.1, 0.1),1)
     chifiles = []
     for i in range(len(Av)):
         dustgrid = np.repeat([minidust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
@@ -219,8 +245,8 @@ def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv):
         SCL = Scale_model_mult(spec.gal_fl,spec.gal_er,redflgrid)
         redflgrid = np.array([SCL]).T*redflgrid
         chigrid = np.sum(((spec.gal_fl - redflgrid) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)])
-        np.save('/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata'.format(name, i),chigrid)
-        chifiles.append('/fdata/scratch/vestrada78840/chidat/{0}_d{1}_chidata.npy'.format(name, i))
+        np.save(chi_path + '{0}_d{1}_chidata'.format(name, i),chigrid)
+        chifiles.append(chi_path + '{0}_d{1}_chidata.npy'.format(name, i))
 
 def Gen_dust_minigrid(fit_wv,rshift):
     dust_dict = {}
@@ -239,7 +265,7 @@ def Stich_grids(grids):
         stc.append(np.load(grids[i]))
     return np.array(stc)
 
-def Analyze_full_fit(chifiles, metal, age, tau, rshift, dust = np.arange(0,1.1,0.1), age_conv='/fdata/scratch/vestrada78840/data/light_weight_scaling_3.npy'):
+def Analyze_full_fit(chifiles, metal, age, tau, rshift, dust = np.arange(0,1.1,0.1), age_conv=data_path + 'light_weight_scaling_3.npy'):
     ####### Get maximum age
     max_age = Oldest_galaxy(max(rshift))
     
@@ -264,7 +290,7 @@ def Analyze_full_fit(chifiles, metal, age, tau, rshift, dust = np.arange(0,1.1,0
 
     ######## get Pd and Pz
 
-    d,Priord = np.load('/fdata/scratch/vestrada78840/data/dust_prior.npy')
+    d,Priord = np.load(data_path + 'dust_prior.npy')
     
     P_full = np.exp(- chi / 2).astype(np.float128)
     

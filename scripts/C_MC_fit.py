@@ -108,14 +108,9 @@ def Fit_spec(fit_grid,fit_fl,fit_er,metal,age,tau,rshift):
 
     return np.array(fullgrid)
 
-def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overhead, dust = np.arange(0,1.1,0.1)):
-    
+def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overhead,dust = np.arange(0,1.1,0.1)):
     ####### Get maximum age
-    max_age = Oldest_galaxy(max(rshift))
     ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
-
-    ####### Read in file
-    P[ : , : , len(age[age <= max_age]):] = 1E5
 
     ######## get Pd and Pz
     P = np.exp(- P / 2).astype(np.float128)
@@ -229,29 +224,25 @@ class Gen_sim(object):
         self.sim_dust = sim_dust
         self.shift = shift
         
-        gal_wv, gal_fl, gal_er = np.load(glob(spec_path + '*{0}*'.format(self.gid))[0])
+        o_wv, gal_fl, gal_er = np.load(glob(spec_path + '*{0}*'.format(self.gid))[0])
         self.flt_input = glob(beam_path + '*{0}*'.format(self.gid))[0]
         
-        IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
+        #IDX = [U for U in range(len(gal_wv)) if minwv <= gal_wv[U] <= maxwv]
 
-        self.gal_wv_rf = gal_wv[IDX] / (1 + self.sim_z)
-        self.gal_wv = gal_wv[IDX]
-        self.gal_fl = gal_fl[IDX]
-        self.gal_er = gal_er[IDX]
-
-        self.gal_wv_rf = self.gal_wv_rf[self.gal_fl > 0 ]
-        self.gal_wv = self.gal_wv[self.gal_fl > 0 ]
-        self.gal_er = self.gal_er[self.gal_fl > 0 ]
-        self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
-        self.o_er = np.array(self.gal_er)
-       
-        WV,TEF = np.load(data_path + 'template_error_function.npy')
-        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
-        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
-
-        snc = SNR_correct(self.gal_wv, self.gal_fl, self.o_er, self.sn)
-        self.gal_fl /= snc
+        ewv, mederr = np.load(data_path + 'med_err.npy')
         
+        self.gal_wv = np.arange(7900,11200,12)
+        
+        self.gal_wv_rf = self.gal_wv / (1 + self.sim_z)
+        self.gal_fl = interp1d(o_wv,gal_fl)(self.gal_wv)
+        self.gal_er = interp1d(ewv,mederr)(self.gal_wv)
+
+        self.gal_wv_rf = self.gal_wv_rf
+        self.gal_wv = self.gal_wv
+        self.gal_er = self.gal_er
+        self.gal_fl = self.gal_fl
+        self.o_er = np.array(self.gal_er)
+             
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
 
@@ -262,6 +253,22 @@ class Gen_sim(object):
         self.IDT = IDT
         self.filt = interp1d(fwv, ffl)(self.gal_wv)
         
+        ### set dummy spec
+        wave, fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
+        self.sim_metal, self.sim_age, self.sim_tau))
+
+        cal = Calzetti(self.sim_dust,wave)
+        
+        w,f = self.Sim_spec_mult(wave, fl*cal, self.sim_z)
+        ifl = interp1d(w,f)(self.gal_wv)
+        adj_ifl = ifl /self.filt
+        
+        snc = SNR_correct(self.gal_wv, adj_ifl, self.o_er, self.sn)
+        self.fl = adj_ifl / snc   
+              
+        WV,TEF = np.load(data_path + 'template_error_function.npy')
+        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.fl)**2)
 
         ## set mask for continuum removal
         m2r = [3175, 3280, 3340, 3515, 3550, 3650, 3710, 3770, 3800, 3850,
@@ -280,9 +287,10 @@ class Gen_sim(object):
         self.nc_gal_fl = self.gal_fl / C0
         self.nc_gal_er = self.gal_er / C0
         self.nc_o_er = self.o_er / C0
-                        
+        
         self.Set_spec()    
 
+        
     def Perturb_flux(self,fl,err):
         return np.abs(fl + np.random.normal(0, err))
 
@@ -311,14 +319,6 @@ class Gen_sim(object):
         return fl / C0
     
     def Set_spec(self):
-        wave, fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
-            self.sim_metal, self.sim_age, self.sim_tau))
-
-        cal = Calzetti(self.sim_dust,wave)
-        
-        w,f = self.Sim_spec_mult(wave, fl*cal, self.sim_z)
-
-        self.fl = self.Interp_and_scale(w, f, self.gal_fl)
         self.flx_err = self.Perturb_flux(self.fl, self.gal_er)
 
         self.nc_fl = self.Rm_cont(self.fl)
