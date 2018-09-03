@@ -89,14 +89,14 @@ def Gen_dust_minigrid(fit_wv,rshift):
         dust_dict[key] = minigrid
     return dust_dict
          
-def Redden(mfl, dust, fit_fl, fit_er, gal_fl, metal, age, tau,rshift):
+def Redden(mfl, dust, fit_fl, fit_er, metal, age, tau,rshift):
     Av = np.round(np.arange(0, 1.1, 0.1),1)
     fullgrid=[]
     for i in range(len(Av)):
         dustgrid = np.repeat([dust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
             [len(rshift)*len(metal)*len(age)*len(tau), len(fit_fl)])
         redflgrid = mfl * dustgrid
-        SCL = Scale_model_mult(gal_fl,fit_er,redflgrid)
+        SCL = Scale_model_mult(fit_fl,fit_er,redflgrid)
         fullgrid.append(np.array([SCL]).T*redflgrid)
     return np.array(fullgrid)
     
@@ -184,7 +184,7 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
 #    print(end-start)                
 
 #    start = time()
-    redgrid = Redden(mflgrid, dstgrid, spec.flx_err, spec.gal_er, spec.gal_fl, metal, age, tau,redshift)
+    redgrid = Redden(mflgrid, dstgrid, spec.flx_err, spec.gal_er, metal, age, tau,redshift)
 
 #    end = time()
 #    print(end - start)
@@ -338,3 +338,19 @@ class Gen_sim(object):
         self.fl = self.Interp_and_scale(w, f, self.flx_err)
         if no_cont:
             self.nc_fl = self.Rm_cont(self.fl)
+
+def Galaxy_gen_spec(metal, age, tau, rshift, specz, galaxy, name):
+    #############Read in spectra#################
+    spec = Gen_sim(galaxy, 0.019, 2.0, 0, specz, 0, 10)
+
+    ##############Create chigrid and add to file#################
+    for i in range(len(metal)):
+        mfl = np.zeros([len(age)*len(tau)*len(rshift),len(spec.IDT)])
+        for ii in range(len(age)):
+            for iii in range(len(tau)):
+                wv,fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
+                    metal[i], age[ii], tau[iii]))
+                for iv in range(len(rshift)):
+                    spec.Sim_spec_mult(wv,fl,rshift[iv])
+                    mfl[ii*len(tau)*len(rshift) + iii*len(rshift) + iv] = spec.fl
+        np.save(chi_path + 'spec_files/{0}_m{1}'.format(name, metal[i]),mfl)

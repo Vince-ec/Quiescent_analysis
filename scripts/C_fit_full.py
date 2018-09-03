@@ -147,9 +147,9 @@ class Gen_spec(object):
         self.mwv = w[self.IDT]
         
         
-def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
+def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200, errf = True):
     #############Read in spectra#################
-    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
+    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv, errf = errf)
 
     #### apply special mask for specific objects
 
@@ -181,8 +181,8 @@ def Galaxy_full_fit(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, 
                     mfl[ii*len(tau)*len(rshift) + iii*len(rshift) + iv] = spec.fl
         np.save(chi_path + 'spec_files/{0}_m{1}'.format(name, metal[i]),mfl)
 
-def Galaxy_full_analyze(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200):
-    Redden_and_stich(galaxy,name,metal,age,tau, specz, rshift,minwv, maxwv)
+def Galaxy_full_analyze(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200, errf = True):
+    Redden_and_stich(galaxy,name,metal,age,tau, specz, rshift,minwv, maxwv,errf)
     grids = [chi_path + '{0}_d{1}_chidata.npy'.format(name,U) for U in range(11)]
     
     P, PZ, Pt, Ptau, Pz, Pd = Analyze_full_fit(grids, metal, age, tau, rshift)
@@ -202,7 +202,7 @@ def Stich_spec(grids):
     stc = np.array(stc)
     return stc.reshape([stc.shape[0] * stc.shape[1],stc.shape[2]])
 
-def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv):
+def Redden_and_stich(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv, errf):
     #############Read in spectra#################
     spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
 
