@@ -1,5 +1,5 @@
 import numpy as np
-from C_MC_fit import Galaxy_gen_spec, Galaxy_full_analyze
+from C_MC_fit import MC_fit
 
 metal=np.round(np.arange(0.002,0.031,0.001),3)
 age=np.round(np.arange(.5,6.1,.1),1)
@@ -8,7 +8,6 @@ tau=[0,8.0, 8.3, 8.48, 8.6, 8.7, 8.78, 8.85, 8.9, 8.95, 9.0, 9.04, 9.08, 9.11, 9
 mtest=np.round(np.arange(0.002,0.031,0.008),3)
 atest=np.arange(.5,6.1,.5)
 tau_test=[0,8.0, 8.3, 8.48, 8.6]
-ztest = np.array([1.1,1.101])
+ztest = np.array([1.219,1.220])
 
-Galaxy_gen_spec(mtest, age, tau, ztest, 1.1, 's40223', 'test')
-Galaxy_full_analyze(mtest, age, tau, ztest, 1.22, 's40597', 'test', minwv = 7900, maxwv = 11200, errf = False)
+MC_fit('s40597', mtest, age, tau, ztest, np.round(np.arange(0,1.1,.1),1), 0.019, 2.5, 0, 1.219, 0, 1000, 'all_test', 1.1, 'test', repeats=10)

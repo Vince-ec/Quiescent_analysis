@@ -110,10 +110,15 @@ def Fit_spec(fit_grid,fit_fl,fit_er,metal,age,tau,rshift):
 
 def Analyze_full_fit(P,fit_fl, fit_er, metal, age, tau, rshift, convtable, overhead,dust = np.arange(0,1.1,0.1)):
     ####### Get maximum age
+    max_age = Oldest_galaxy(max(rshift))
+    
+    P = np.exp(- P / 2).astype(np.float128)    
+    ####### Read in file   
+    P[ : , : , len(age[age <= max_age]):] = 0
+
     ultau = np.append(0, np.power(10, np.array(tau)[1:] - 9))
 
     ######## get Pd and Pz
-    P = np.exp(- P / 2).astype(np.float128)
     P = np.trapz(P, rshift, axis=4)
     P = np.trapz(P.T, dust, axis=3).T
     new_P = np.zeros(P.T.shape)
