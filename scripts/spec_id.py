@@ -424,7 +424,7 @@ def Stack_model_normwmean(speclist, redshifts, bfmetal, bfage, bftau, wv_range, 
 
 """Single Galaxy"""
 class Gen_spec(object):
-    def __init__(self, galaxy_id, redshift,minwv = 8000, maxwv = 11200, shift = 1):
+    def __init__(self, galaxy_id, redshift,minwv = 8000, maxwv = 11200, shift = 1, tmp_err=True):
         self.galaxy_id = galaxy_id
         self.gid = int(self.galaxy_id[1:])
         self.redshift = redshift
@@ -461,9 +461,10 @@ class Gen_spec(object):
         self.gal_fl = self.gal_fl[self.gal_fl > 0 ]
         self.o_er = np.array(self.gal_er)
         
-        WV,TEF = np.load('../data/template_error_function.npy')
-        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
-        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
+        if tmp_err:
+            WV,TEF = np.load('../data/template_error_function.npy')
+            iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+            self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.gal_fl)**2)
 
         ## Spectrum cutouts
         self.beam = grizli.model.BeamCutout(fits_file=self.flt_input)
