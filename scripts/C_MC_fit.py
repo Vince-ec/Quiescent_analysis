@@ -41,7 +41,7 @@ def Sig_int(er):
     return np.sum((1/2)*sig)
 
 def SNR(wv,fl,er):
-    IDX = [U for U in range(len(wv)) if 7900 < wv[U] < 11200]
+    IDX = [U for U in range(len(wv)) if 8500 < wv[U] < 10500]
     return np.trapz(fl[IDX])/ Sig_int(er[IDX])
 
 def SNR_correct(wave,flux,error,SNR_desired): 
@@ -218,7 +218,8 @@ def MC_fit(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, 
     return
 
 class Gen_sim(object):
-    def __init__(self, galaxy_id, sim_metal, sim_age, sim_tau, sim_z, sim_dust, sn, minwv = 7900, maxwv = 11200, shift = 1):
+    def __init__(self, galaxy_id, sim_metal, sim_age, sim_tau, sim_z, sim_dust, sn, minwv = 7900, maxwv = 11200, shift = 1,
+                tmp_err = False):
         self.galaxy_id = galaxy_id
         self.gid = int(self.galaxy_id[1:])
         self.sim_metal = sim_metal
@@ -271,9 +272,10 @@ class Gen_sim(object):
         snc = SNR_correct(self.gal_wv, adj_ifl, self.o_er, self.sn)
         self.fl = adj_ifl / snc   
               
-        WV,TEF = np.load(data_path + 'template_error_function.npy')
-        iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
-        self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.fl)**2)
+        if tmp_err:
+            WV,TEF = np.load(data_path + 'template_error_function.npy')
+            iTEF = interp1d(WV,TEF)(self.gal_wv_rf)
+            self.gal_er = np.sqrt(self.gal_er**2 + (iTEF*self.fl)**2)
 
         ## set mask for continuum removal
         m2r = [3175, 3280, 3340, 3515, 3550, 3650, 3710, 3770, 3800, 3850,
