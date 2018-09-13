@@ -331,3 +331,53 @@ def Analyze_full_fit(chifiles, metal, age, tau, rshift, dust = np.arange(0,1.1,0
     Ptau = np.trapz(np.trapz(P.T, metal, axis=2), age, axis=1)
 
     return prob.T, PZ, Pt, Ptau, Pz, Pd
+
+def Redden_and_stich_hb_mask(galaxy,name,metal,age,tau,specz, rshift,minwv, maxwv, errf):
+    #############Read in spectra#################
+    spec = Gen_spec(galaxy, specz, minwv = minwv, maxwv = maxwv)
+
+    #### apply special mask for specific objects
+
+    IDer = []
+    for ii in range(len(spec.gal_wv_rf)):
+        if 4837 <= spec.gal_wv_rf[ii] <= 4843 or 4873 <= spec.gal_wv_rf[ii] <= 4900:
+            IDer.append(ii)
+    spec.gal_er[IDer] = 1E8
+    spec.gal_fl[IDer] = 0
+
+    wv,fl = np.load(model_path + 'm0.019_a2.0_dt8.0_spec.npy')
+    spec.Sim_spec_mult(wv,fl)
+    
+    files = [chi_path + 'spec_files/{0}_m{1}.npy'.format(name,U) for U in metal]
+    mfl = Stich_spec(files)
+    mfl = np.ma.masked_invalid(mfl)
+    mfl.data[mfl.mask] = 0
+    mfl = interp2d(spec.mwv,range(len(mfl.data)),mfl.data)(spec.gal_wv,range(len(mfl.data)))
+    mfl = mfl / spec.filt
+    
+    minidust = Gen_dust_minigrid(spec.gal_wv, rshift)
+    
+    Av = np.round(np.arange(0, 1.1, 0.1),1)
+    chifiles = []
+    for i in range(len(Av)):
+        dustgrid = np.repeat([minidust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
+            [len(minidust[str(Av[i])])*len(metal)*len(age)*len(tau), len(spec.gal_wv)])
+        redflgrid = mfl * dustgrid
+        SCL = Scale_model_mult(spec.gal_fl,spec.gal_er,redflgrid)
+        redflgrid = np.array([SCL]).T*redflgrid
+        chigrid = np.sum(((spec.gal_fl - redflgrid) / spec.gal_er) ** 2, axis=1).reshape([len(metal), len(age), len(tau), len(rshift)])
+        np.save(chi_path + '{0}_d{1}_chidata_hb_mask'.format(name, i),chigrid)
+        chifiles.append(chi_path + '{0}_d{1}_chidata_hb_mask.npy'.format(name, i))
+
+def Galaxy_full_analyze_hb_mask(metal, age, tau, rshift, specz, galaxy, name, minwv = 8000, maxwv = 11200, errf = True):
+    Redden_and_stich__hb_mask(galaxy,name,metal,age,tau, specz, rshift,minwv, maxwv,errf)
+    grids = [chi_path + '{0}_d{1}_chidata_nohb.npy'.format(name,U) for U in range(11)]
+    
+    P, PZ, Pt, Ptau, Pz, Pd = Analyze_full_fit(grids, metal, age, tau, rshift)
+
+    np.save(out_path + '%s_tZ_pos_hb_mask' % name,P)
+    np.save(out_path + '%s_Z_pos_hb_mask' % name,[metal,PZ])
+    np.save(out_path + '%s_t_pos_hb_mask' % name,[age,Pt])
+    np.save(out_path + '%s_tau_pos_hb_mask' % name,[np.append(0, np.power(10, np.array(tau)[1:] - 9)),Ptau])
+    np.save(out_path + '%s_rs_pos_hb_mask' % name,[rshift,Pz])
+    np.save(out_path + '%s_d_pos_hb_mask' % name,[np.arange(0,1.1,0.1),Pd])
