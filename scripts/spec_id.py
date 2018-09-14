@@ -210,34 +210,6 @@ def Error(p, y):
     return lerr, herr
 
 
-def Median_w_Error(Pofx, x):
-    iP = interp1d(x, Pofx)
-    ix = np.linspace(x[0], x[-1], 500)
-
-    lerr = 0
-    herr = 0
-
-    for i in range(len(ix)):
-        e = np.trapz(iP(ix[0:i + 1]), ix[0:i + 1])
-        if lerr == 0:
-            if e >= .16:
-                lerr = ix[i]
-        if herr == 0:
-            if e >= .84:
-                herr = ix[i]
-                break
-
-    med = 0
-
-    for i in range(len(x)):
-        e = np.trapz(Pofx[0:i + 1], x[0:i + 1])
-        if med == 0:
-            if e >= .5:
-                med = x[i]
-                break
-
-    return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
-
 def Median_w_Error_95(Pofx, x):
     iP = interp1d(x, Pofx)
     ix = np.linspace(x[0], x[-1], 10000)
@@ -266,8 +238,38 @@ def Median_w_Error_95(Pofx, x):
 
     return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
 
+def Median_w_Error(Pofx, x):
+    power = int(np.abs(min(np.log10(x))))+1
+    
+    ix = np.linspace(x[0], x[-1], 1000)
+    iP = interp1d(x, Pofx)(ix)
+
+    C = np.trapz(iP,ix)
+
+    iP/=C
+
+
+    lerr = 0
+    herr = 0
+    med = 0
+
+    for i in range(len(ix)):
+        e = np.trapz(iP[0:i + 1], ix[0:i + 1])
+        if lerr == 0:
+            if e >= .16:
+                lerr = ix[i]
+        if med == 0:
+            if e >= .50:
+                med = ix[i]
+        if herr == 0:
+            if e >= .84:
+                herr = ix[i]
+                break
+                
+    return np.round(med,power), med - lerr, herr - med
+
 def Median_w_Error_cont(Pofx, x):
-    ix = np.linspace(x[0], x[-1], 500)
+    ix = np.linspace(x[0], x[-1], 1000)
     iP = interp1d(x, Pofx)(ix)
 
     C = np.trapz(iP,ix)
@@ -2610,10 +2612,11 @@ def Stack_posteriors(P_grid, x):
     P =sum(top)/sum(W)
     return P / np.trapz(P,x)
 
-def Iterative_stacking(grid_o,x_o,rto, extend=False, iterations = 20,resampling = 250):
+def Iterative_stacking(grid_o,x_o, extend=False, iterations = 20,resampling = 250):
     ksmooth = importr('KernSmooth')
     del_x = x_o[1] - x_o[0]
-
+    rto = int(np.abs(min(np.log10(x_o))))+1
+    
     if extend:
         x_n,grid_n = Reconfigure_dist(grid_o,x_o,rto)
 
