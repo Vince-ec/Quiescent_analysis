@@ -239,7 +239,7 @@ def Median_w_Error_95(Pofx, x):
     return np.round(med,3), np.round(med - lerr,3), np.round(herr - med,3)
 
 def Median_w_Error(Pofx, x):
-    power = int(np.abs(min(np.log10(x))))+1
+    power = int(np.abs(min(np.log10(x)[np.abs(np.log10(x)) != np.inf])))+1
     
     ix = np.linspace(x[0], x[-1], 1000)
     iP = interp1d(x, Pofx)(ix)
@@ -2615,8 +2615,8 @@ def Stack_posteriors(P_grid, x):
 def Iterative_stacking(grid_o,x_o, extend=False, iterations = 20,resampling = 250):
     ksmooth = importr('KernSmooth')
     del_x = x_o[1] - x_o[0]
-    rto = int(np.abs(min(np.log10(x_o))))+1
-    
+    rto = int(np.abs(min(np.log10(x_o)[np.abs(np.log10(x_o)) != np.inf])))+1
+
     if extend:
         x_n,grid_n = Reconfigure_dist(grid_o,x_o,rto)
 
