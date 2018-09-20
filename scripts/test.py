@@ -1,5 +1,5 @@
 import numpy as np
-from C_MC_fit import MC_fit
+from C_MC_fit import MC_fit_rand
 
 metal=np.round(np.arange(0.002,0.031,0.001),3)
 age=np.round(np.arange(.5,6.1,.1),1)
@@ -10,4 +10,4 @@ atest=np.arange(.5,6.1,.5)
 tau_test=[0,8.0, 8.3, 8.48, 8.6]
 ztest = np.array([1.219,1.220])
 
-MC_fit('s40597', mtest, age, tau, ztest, np.round(np.arange(0,1.1,.1),1), 0.019, 2.5, 0, 1.219, 0, 1000, 'all_test', 1.1, 'test', repeats=10)
+MC_fit_rand('s40597', mtest, age, tau, ztest, np.round(np.arange(0,1.1,.1),1), 0.019, 2.5, 0, 1.219, 0, 10, 'all_test', 1.1, 'test', [.015,.003], [2.5,.5], repeats=1000)

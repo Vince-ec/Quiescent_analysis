@@ -346,18 +346,99 @@ class Gen_sim(object):
         if no_cont:
             self.nc_fl = self.Rm_cont(self.fl)
 
-def Galaxy_gen_spec(metal, age, tau, rshift, specz, galaxy, name):
-    #############Read in spectra#################
-    spec = Gen_sim(galaxy, 0.019, 2.0, 0, specz, 0, 10)
+def MC_fit_rand(galaxy, metal, age, tau, redshift, dust, sim_m, sim_a, sim_t, sim_z, sim_d, sn, dataset, specz, name, Z_range, a_range, repeats=1000,
+                    age_conv= data_path + 'light_weight_scaling_3.npy'):
+    """
+    fitting test where each metallicity and age changes at each iteration
+    
+    *range - [mu, sig]
+    """
+    
+    ######## set paramter output arrays
+    PZlist = np.zeros([repeats,metal.size])
+    Ptlist = np.zeros([repeats,age.size])
+    mlist = np.zeros(repeats)
+    alist = np.zeros(repeats)
+    m_in = np.zeros(repeats)
+    a_in = np.zeros(repeats)
+    
+    
+    ultau = np.append(0, np.power(10, np.array(tau[1:]) - 9))
+    
+    ######## initial sim
+    spec = Gen_sim(galaxy, sim_m, sim_a, sim_t, sim_z, sim_d, sn)
 
-    ##############Create chigrid and add to file#################
-    for i in range(len(metal)):
-        mfl = np.zeros([len(age)*len(tau)*len(rshift),len(spec.IDT)])
-        for ii in range(len(age)):
-            for iii in range(len(tau)):
-                wv,fl = np.load(model_path + 'm{0}_a{1}_dt{2}_spec.npy'.format(
-                    metal[i], age[ii], tau[iii]))
-                for iv in range(len(rshift)):
-                    spec.Sim_spec_mult(wv,fl,rshift[iv])
-                    mfl[ii*len(tau)*len(rshift) + iii*len(rshift) + iv] = spec.fl
-        np.save(chi_path + 'spec_files/{0}_m{1}'.format(name, metal[i]),mfl)
+    ####### set up lwa
+    convtable = np.load(age_conv)
+    overhead = np.zeros([len(tau),metal.size]).astype(int)
+    for i in range(len(tau)):
+        for ii in range(metal.size):
+            amt=[]
+            for iii in range(age.size):
+                if age[iii] > convtable.T[i].T[ii][-1]:
+                    amt.append(1)
+            overhead[i][ii] = sum(amt)
+    
+    ####### Generate model grid
+    mflgrid = Gen_mflgrid(spec.gal_wv, spec.filt, metal, galaxy, specz,dataset)
+
+    ####### Generate dust minigrid
+    dstgrid = Gen_dust_minigrid(spec.gal_wv,redshift)
+
+    ####### Generate reddened grid
+    redgrid = Redden_rand(mflgrid, dstgrid, spec.flx_err, metal, age, tau,redshift)
+
+    for xx in range(repeats):
+        ###### choose random metallicity and age
+        mrand = 10
+        while (mrand > Z_range[0] + Z_range[1]*3) | ((mrand < Z_range[0] - Z_range[1]*3)):
+            mrand = np.random.normal(Z_range[0], Z_range[1],1).round(3)[0]
+        
+        arand = 10
+        while (arand > a_range[0] + a_range[1]*3) | ((arand < a_range[0] - a_range[1]*3)):
+            arand = np.random.normal(a_range[0], a_range[1],1).round(1)[0]
+        
+        m_in[xx] = mrand
+        a_in[xx] = arand
+        
+        ###### generate simulated spec
+        spec = Gen_sim(galaxy, m_in[xx], a_in[xx], sim_t, sim_z, sim_d, sn)
+        
+        ###### scale models to sim
+        sclgrid = Scale_rand(redgrid,spec.flx_err,spec.gal_er)
+        
+        ###### fit grid  
+        chigrid = Fit_spec(sclgrid, spec.flx_err, spec.gal_er, metal, age, tau, redshift)
+    
+        ###### analyze grid
+        PZlist[xx], Ptlist[xx] = Analyze_full_fit(chigrid,spec.flx_err, spec.gal_er, metal, age, tau, 
+                                                  redshift,convtable, overhead)
+
+        ###### measure medians
+        mlist[xx],ml,mh = Median_w_Error_cont(PZlist[xx],metal)
+        alist[xx],ml,mh = Median_w_Error_cont(Ptlist[xx],age)
+        
+    ####### save output
+    np.save(mcerr_path + 'PZ_' + name, PZlist)
+    np.save(mcerr_path + 'Pt_' + name, Ptlist)
+    np.save(mcerr_path + name, [mlist, m_in, alist, a_in])
+
+    return
+
+def Redden_rand(mfl, dust, fit_fl, metal, age, tau,rshift):
+    Av = np.round(np.arange(0, 1.1, 0.1),1)
+    fullgrid=[]
+    for i in range(len(Av)):
+        dustgrid = np.repeat([dust[str(Av[i])]], len(metal)*len(age)*len(tau), axis=0).reshape(
+            [len(rshift)*len(metal)*len(age)*len(tau), len(fit_fl)])
+        redflgrid = mfl * dustgrid
+        fullgrid.append(mfl * dustgrid)
+    return np.array(fullgrid)
+
+def Scale_rand(grid,fit_fl,fit_er):
+    sclgrid=[]
+    for i in range(len(grid)):
+        SCL = Scale_model_mult(fit_fl,fit_er,grid[i])
+        sclgrid.append(np.array([SCL]).T*grid[i])
+    return np.array(sclgrid)
+
